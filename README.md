@@ -83,3 +83,7 @@ Then open <http://127.0.0.1:8000/> and log in (`admin` / `Admin@123`).
 - **Media uploads** (e.g., profile avatars) are saved to `media/` and served automatically when `DEBUG = True`.
 - **Email** uses the console backend in development — outgoing mail is printed to the runserver terminal instead of being sent. Update `EMAIL_BACKEND` in `myapp/settings.py` for real SMTP delivery.
 - **Static files**: collected to `staticfiles/` with `python3 manage.py collectstatic` when deploying.
+
+
+<img src="https://raw.githubusercontent.com/cai-ro-coders/-CRM-Customer-Relationship-Management-system-Using-Python-Django-MySQL-Complete-Project/refs/heads/main/1.png" alt="Cairocoders Ednalan">
+<img src="https://raw.githubusercontent.com/cai-ro-coders/-CRM-Customer-Relationship-Management-system-Using-Python-Django-MySQL-Complete-Project/refs/heads/main/1.png" alt="Cairocoders Ednalan">
