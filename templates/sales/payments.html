@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block title %}Payments{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fa-solid fa-money-bill-transfer text-primary me-2"></i>Payments</h4>
+        <small class="text-muted">All received payments · <a href="/invoices/">Back to invoices →</a></small>
+    </div>
+    <button class="btn btn-primary" onclick="openPaymentModal()"><i class="fa-solid fa-plus me-1"></i>Record Payment</button>
+</div>
+
+<div class="card"><div class="card-body">
+<table id="paymentsTable" class="table table-hover w-100">
+    <thead><tr><th>ID</th><th>Date</th><th>Invoice #</th><th>Customer</th><th>Method</th>
+        <th>Reference</th><th>Amount</th><th class="no-export">Actions</th></tr></thead>
+</table>
+</div></div>
+
+<div class="modal fade" id="paymentModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="paymentForm" onsubmit="savePayment(event)">
+                <div class="modal-header"><h5 class="modal-title">Record Payment</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body row g-3">
+                    <div class="col-12"><label class="form-label">Invoice *</label>
+                        <select name="invoice_id" class="form-select" required>
+                            <option value="">-- Select open invoice --</option>
+                            {% for v in invoices %}
+                            {% if v.status != 'Cancelled' and v.balance > 0 %}
+                            <option value="{{ v.id }}">{{ v.invoice_number }} — {{ v.customer.company_name }} (balance ${{ v.balance }})</option>
+                            {% endif %}
+                            {% endfor %}
+                        </select></div>
+                    <div class="col-md-6"><label class="form-label">Amount ($) *</label>
+                        <input name="amount" type="number" step="0.01" min="0.01" class="form-control" required></div>
+                    <div class="col-md-6"><label class="form-label">Payment Date</label>
+                        <input name="payment_date" type="date" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Method</label>
+                        <select name="payment_method" class="form-select">
+                            <option>Cash</option><option selected>Bank Transfer</option>
+                            <option>Credit Card</option><option>Check</option><option>PayPal</option><option>Other</option>
+                        </select></div>
+                    <div class="col-md-6"><label class="form-label">Reference #</label>
+                        <input name="transaction_reference" class="form-control" placeholder="TXN / Check #"></div>
+                    <div class="col-12"><label class="form-label">Notes</label>
+                        <textarea name="notes" rows="2" class="form-control"></textarea></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-success px-4"><i class="fa-solid fa-check me-1"></i>Save Payment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let paymentTable;
+$(function () {
+    paymentTable = initDataTable('#paymentsTable', '/payments/data/', [
+        { data: 'id' },
+        { data: 'payment_date' },
+        { data: null, render: r => r.invoice_id
+            ? `<a href="/invoices/${r.invoice_id}/" class="font-monospace text-decoration-none">${r.invoice}</a>`
+            : `${r.invoice}` },
+        { data: 'customer' },
+        { data: 'payment_method' },
+        { data: 'transaction_reference' },
+        { data: 'amount', render: d => '<strong class="text-success">$' + d + '</strong>' },
+        { data: null, className: 'no-export', orderable: false, searchable: false, render: (d, t, r) => `
+            ${r.invoice_id ? `<a href="/invoices/${r.invoice_id}/" class="btn btn-sm btn-outline-primary" title="Open invoice"><i class="fa-solid fa-file-invoice"></i></a>` : ''}
+            <button class="btn btn-sm btn-outline-danger" onclick="deletePayment(${r.id})"><i class="fa-solid fa-trash"></i></button>` }
+    ], { orderCol: 1 });
+});
+
+function openPaymentModal() {
+    $('#paymentForm')[0].reset();
+    new bootstrap.Modal('#paymentModal').show();
+}
+
+function savePayment(e) {
+    e.preventDefault();
+    $.post('/payments/save/', $('#paymentForm').serialize()).done(res => {
+        toast(res.message);
+        bootstrap.Modal.getInstance('#paymentModal').hide();
+        paymentTable.ajax.reload(null, false);
+    }).fail(handleAjaxError);
+}
+
+function deletePayment(id) { confirmDelete(`/payments/${id}/delete/`, () => paymentTable.ajax.reload(null, false)); }
+</script>
+{% endblock %}

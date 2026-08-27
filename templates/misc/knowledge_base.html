@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}Knowledge Base{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fa-solid fa-book-open text-primary me-2"></i>Knowledge Base</h4>
+        <small class="text-muted">Guides to help your team get the most from the CRM</small>
+    </div>
+</div>
+
+<div class="row g-3">
+    {% for title, summary in articles %}
+    <div class="col-md-6 col-xl-4">
+        <div class="card h-100 article-card" data-bs-toggle="collapse"
+             data-bs-target="#kb{{ forloop.counter }}" role="button">
+            <div class="card-body d-flex gap-3 align-items-start">
+                <span class="stat-icon text-primary bg-primary bg-opacity-10">
+                    <i class="{% if forloop.counter0 == 0 %}fa-solid fa-rocket{% elif forloop.counter0 == 1 %}fa-solid fa-right-left{% elif forloop.counter0 == 2 %}fa-solid fa-file-invoice-dollar{% elif forloop.counter0 == 3 %}fa-solid fa-diagram-project{% elif forloop.counter0 == 4 %}fa-solid fa-headset{% else %}fa-solid fa-bullhorn{% endif %}"></i>
+                </span>
+                <div>
+                    <div class="fw-semibold">{{ title }}</div>
+                    <small class="text-muted">{{ summary }}</small>
+                </div>
+            </div>
+            <div class="collapse card-footer bg-transparent small text-muted border-top py-2"
+                 id="kb{{ forloop.counter }}">
+                Full step-by-step documentation ships with the production build.
+                Meanwhile, explore the module directly from the sidebar.
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}{% endblock %}

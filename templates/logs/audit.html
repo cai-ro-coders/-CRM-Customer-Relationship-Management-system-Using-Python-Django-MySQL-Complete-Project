@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block title %}Audit Trail{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fa-solid fa-user-lock text-primary me-2"></i>Audit Trail</h4>
+        <small class="text-muted">Before/after snapshots of critical changes</small>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <select id="fTable" class="form-select form-select-sm w-auto"><option value="">All Tables</option></select>
+    </div>
+    <div class="card-body">
+<table id="auditTable" class="table table-hover w-100">
+    <thead><tr><th>ID</th><th>When</th><th>User</th><th>Table</th><th>Record</th>
+        <th>Action</th><th>Old Values</th><th>New Values</th><th class="no-export"></th></tr></thead>
+</table>
+    </div>
+</div>
+
+<div class="modal fade" id="diffModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Change Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body row g-3" id="diffBody"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let auditTable;
+$(function () {
+    auditTable = initDataTable('#auditTable', '/audit-logs/data/', [
+        { data: 'id' },
+        { data: 'created_at', className: 'small' },
+        { data: 'user', render: d => `<span class="badge badge-soft-info">${d}</span>` },
+        { data: 'table_name', className: 'font-monospace small' },
+        { data: 'record_id' },
+        { data: null, render: (d, t, r) => `<span class="badge badge-soft-${r.action_class === 'primary' ? 'info' : r.action_class}">${r.action}</span>` },
+        { data: 'old_values', className: 'small text-truncate', render: d => d !== '-' ? '<code>' + escHtml(d.slice(0, 60)) + '…</code>' : '<span class="text-muted">—</span>' },
+        { data: 'new_values', className: 'small text-truncate', render: d => d !== '-' ? '<code>' + escHtml(d.slice(0, 60)) + '…</code>' : '<span class="text-muted">—</span>' },
+        { data: null, className: 'no-export', orderable: false, searchable: false,
+          render: (d, t, r) => (r.old_values !== '-' || r.new_values !== '-')
+            ? `<button class="btn btn-sm btn-outline-primary" onclick='showDiff(${JSON.stringify(JSON.stringify(r))})'><i class="fa-solid fa-magnifying-glass"></i></button>`
+            : '' }
+    ], {
+        filters: d => { d.table_name = $('#fTable').val() || ''; }
+    });
+
+    // populate table filter once
+    $.get('/audit-logs/data/?length=500').done(res => {
+        const tables = [...new Set(res.data.map(r => r.table_name))].sort();
+        tables.forEach(t => $('#fTable').append(`<option>${t}</option>`));
+    });
+    $('#fTable').on('change', () => auditTable.ajax.reload());
+});
+
+function escHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function prettyJson(str) {
+    try {
+        return Object.entries(JSON.parse(str))
+            .map(([k, v]) => `<tr><td class="text-muted small">${k}</td><td class="small"><code>${escHtml(String(v))}</code></td></tr>`).join('');
+    } catch { return ''; }
+}
+
+function showDiff(json) {
+    const r = JSON.parse(json);
+    $('#diffBody').html(`
+        ${r.old_values !== '-' ? `<div class="col-md-6"><h6 class="text-danger small">BEFORE</h6>
+            <table class="table table-sm table-bordered">${prettyJson(r.old_values) || '-'}</table></div>` : ''}
+        ${r.new_values !== '-' ? `<div class="col-md-6"><h6 class="text-success small">AFTER</h6>
+            <table class="table table-sm table-bordered">${prettyJson(r.new_values) || '-'}</table></div>` : ''}`);
+    new bootstrap.Modal('#diffModal').show();
+}
+</script>
+{% endblock %}

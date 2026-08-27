@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}Email Logs{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fa-solid fa-list-check text-primary me-2"></i>Email Logs</h4>
+        <small class="text-muted">Delivery history of all outbound emails · <a href="/email/bulk/">New campaign →</a></small>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <select id="fStatus" class="form-select form-select-sm w-auto"><option value="">All Statuses</option>
+            <option>Sent</option><option>Opened</option><option>Failed</option></select>
+    </div>
+    <div class="card-body">
+<table id="logsTable" class="table table-hover w-100">
+    <thead><tr><th>ID</th><th>Sent At</th><th>Recipient</th><th>Customer</th><th>Subject</th>
+        <th>Template</th><th>Status</th></tr></thead>
+</table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let logTable;
+$(function () {
+    logTable = initDataTable('#logsTable', '/email/logs/data/', [
+        { data: 'id' },
+        { data: 'sent_at' },
+        { data: 'recipient', className: 'font-monospace small' },
+        { data: 'customer' },
+        { data: 'subject' },
+        { data: 'template' },
+        { data: 'status', render: (d, t, r) => `<span class="badge badge-soft-${r.status_class === 'primary' ? 'info' : r.status_class === 'secondary' ? 'secondary' : r.status_class}">${d}</span>` }
+    ], {
+        filters: d => { d.status = $('#fStatus').val() || ''; }
+    });
+    $('#fStatus').on('change', () => logTable.ajax.reload());
+});
+</script>
+{% endblock %}

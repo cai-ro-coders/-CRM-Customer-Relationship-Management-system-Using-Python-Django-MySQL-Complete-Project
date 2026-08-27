@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% block title %}My Profile{% endblock %}
+{% block content %}
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card text-center">
+            <div class="card-body p-4">
+                {% if request.user.avatar %}
+                <img src="{{ request.user.avatar.url }}" class="avatar-lg mb-2" alt="">
+                {% else %}
+                <div class="avatar-lg avatar-initials bg-primary text-white mx-auto mb-2">
+                    {{ request.user.first_name|slice:":1" }}{{ request.user.last_name|slice:":1" }}
+                </div>
+                {% endif %}
+                <h5 class="fw-bold mb-0">{{ request.user.get_full_name }}</h5>
+                <span class="badge bg-primary-subtle text-primary">{{ request.user.role.name|default:"No Role" }}</span>
+                <hr>
+                <div class="text-start small">
+                    <p class="mb-2"><i class="fa-solid fa-at me-2 text-muted"></i>{{ request.user.username }}</p>
+                    <p class="mb-2"><i class="fa-solid fa-envelope me-2 text-muted"></i>{{ request.user.email }}</p>
+                    <p class="mb-2"><i class="fa-solid fa-phone me-2 text-muted"></i>{{ request.user.phone|default:"—" }}</p>
+                    <p class="mb-2"><i class="fa-solid fa-location-dot me-2 text-muted"></i>{{ request.user.address|default:"—" }}</p>
+                    <p class="mb-0"><i class="fa-solid fa-circle-check me-2 text-success"></i>{{ request.user.status }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header"><i class="fa-solid fa-clock-rotate-left me-2"></i>Login History</div>
+            <div class="list-group list-group-flush">
+                {% for log in login_history %}
+                <div class="list-group-item small d-flex justify-content-between">
+                    <span><i class="fa-brands fa-{{ log.browser|lower }} me-2 text-muted"></i>{{ log.browser }} · {{ log.operating_system }}</span>
+                    <span class="text-muted">{{ log.login_time|date:"d M H:i" }}</span>
+                </div>
+                {% empty %}
+                <div class="list-group-item small text-muted">No login history</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header"><i class="fa-solid fa-user-pen me-2"></i>Edit Profile</div>
+            <div class="card-body">
+                <form id="profileForm" enctype="multipart/form-data" novalidate>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">First Name *</label>
+                            <input type="text" name="first_name" value="{{ request.user.first_name }}" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Last Name</label>
+                            <input type="text" name="last_name" value="{{ request.user.last_name }}" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email *</label>
+                            <input type="email" name="email" value="{{ request.user.email }}" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Phone</label>
+                            <input type="text" name="phone" value="{{ request.user.phone }}" class="form-control">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Address</label>
+                            <textarea name="address" rows="2" class="form-control">{{ request.user.address }}</textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Profile Picture</label>
+                            <input type="file" name="avatar" accept="image/*" class="form-control">
+                            <small class="text-muted">JPG/PNG, max 3MB</small>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary mt-4 px-4">
+                        <i class="fa-solid fa-floppy-disk me-1"></i> Save Changes
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$('#profileForm').on('submit', function (e) {
+    e.preventDefault();
+    $.ajax({
+        url: '/profile/', type: 'POST', data: new FormData(this),
+        contentType: false, processData: false
+    }).done(function (res) {
+        Swal.fire('Success', res.message, 'success').then(() => location.reload());
+    }).fail(function (xhr) { handleAjaxError(xhr); });
+});
+</script>
+{% endblock %}

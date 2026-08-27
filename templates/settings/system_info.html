@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}System Information{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <a href="/settings/" class="small text-decoration-none"><i class="fa-solid fa-arrow-left me-1"></i>Back to Settings</a>
+        <h4 class="fw-bold mb-0 mt-1"><i class="fa-solid fa-circle-info text-primary me-2"></i>System Information</h4>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card"><div class="card-body p-0">
+            <table class="table table-striped mb-0 align-middle">
+                <tbody>
+                    {% for k, v in info.items %}
+                    <tr><td style="width:40%" class="text-muted"><i class="fa-solid fa-circle-dot me-2 smaller text-primary"></i>{{ k }}</td>
+                        <td class="fw-semibold">{{ v }}</td></tr>
+                    {% endfor %}
+                    <tr><td class="text-muted"><i class="fa-brands fa-python me-2 smaller text-primary"></i>Framework</td>
+                        <td class="fw-semibold">Django MVC ( MTV ) + jQuery AJAX</td></tr>
+                    <tr><td class="text-muted"><i class="fa-solid fa-palette me-2 smaller text-primary"></i>UI Stack</td>
+                        <td class="fw-semibold">Bootstrap 5 · DataTables · SweetAlert2 · Chart.js · FullCalendar</td></tr>
+                </tbody>
+            </table>
+        </div></div>
+
+        <div class="alert alert-info mt-3 small">
+            <i class="fa-brands fa-osi me-1"></i>Built per CRM.md specification #4-837 —
+            Admin CRM with MySQL, Bootstrap 5, server-side DataTables, RBAC, and full sales/support modules.
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}{% endblock %}

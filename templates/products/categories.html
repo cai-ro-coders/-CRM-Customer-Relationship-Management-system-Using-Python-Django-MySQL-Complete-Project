@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block title %}Product Categories{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <a href="/products/" class="small text-decoration-none"><i class="fa-solid fa-arrow-left me-1"></i>Back to Products</a>
+        <h4 class="fw-bold mb-0 mt-1"><i class="fa-solid fa-layer-group text-primary me-2"></i>Product Categories</h4>
+    </div>
+    <button class="btn btn-primary" onclick="openCategoryModal()"><i class="fa-solid fa-plus me-1"></i>New Category</button>
+</div>
+
+<div class="card"><div class="card-body">
+<table id="catTable" class="table table-hover w-100" style="width:100%">
+    <thead><tr><th>ID</th><th>Name</th><th>Description</th><th>Products</th><th class="no-export">Actions</th></tr></thead>
+</table>
+</div></div>
+
+<div class="modal fade" id="categoryModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="categoryForm">
+                <input type="hidden" name="id" id="c_id">
+                <div class="modal-header"><h5 class="modal-title">Category</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body row g-3">
+                    <div class="col-12"><label class="form-label">Category Name *</label>
+                        <input name="category_name" class="form-control" required></div>
+                    <div class="col-12"><label class="form-label">Description</label>
+                        <textarea name="description" rows="2" class="form-control"></textarea></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary px-4">Save Category</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let catTable;
+$(function () {
+    catTable = initDataTable('#catTable', '/categories/data/', [
+        { data: 'id' },
+        { data: 'name', className: 'fw-semibold' },
+        { data: 'description' },
+        { data: 'product_count', render: d => `<span class="badge badge-soft-primary">${d}</span>` },
+        { data: null, className: 'no-export', orderable: false, searchable: false, render: (d, t, r) => `
+            <button class="btn btn-sm btn-outline-warning" onclick='editCategory(${JSON.stringify(JSON.stringify(r))})'><i class="fa-solid fa-pen"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteCategory(${r.id})"><i class="fa-solid fa-trash"></i></button>` }
+    ], { serverSide: false });
+});
+
+function openCategoryModal() {
+    $('#categoryForm')[0].reset();
+    $('#c_id').val('');
+    new bootstrap.Modal('#categoryModal').show();
+}
+
+function editCategory(json) {
+    const r = JSON.parse(json);
+    const f = $('#categoryForm')[0];
+    f.reset();
+    $('#c_id').val(r.id);
+    f.category_name.value = r.name;
+    if (r.description !== '-') f.description.value = r.description;
+    new bootstrap.Modal('#categoryModal').show();
+}
+
+$('#categoryForm').on('submit', function (e) {
+    e.preventDefault();
+    $.post('/categories/save/', $(this).serialize()).done(res => {
+        toast(res.message);
+        bootstrap.Modal.getInstance('#categoryModal').hide();
+        catTable.ajax.reload(null, false);
+    }).fail(handleAjaxError);
+});
+
+function deleteCategory(id) { confirmDelete(`/categories/${id}/delete/`, () => catTable.ajax.reload(null, false)); }
+</script>
+{% endblock %}

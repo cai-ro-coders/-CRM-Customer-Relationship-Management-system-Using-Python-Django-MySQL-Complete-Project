@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% block title %}{{ lead.full_name }} — Lead{% endblock %}
+{% block content %}
+<div class="mb-3">
+    <a href="/leads/" class="small text-decoration-none"><i class="fa-solid fa-arrow-left me-1"></i>Back to Leads</a>
+    <h4 class="fw-bold mb-0 mt-1">{{ lead.full_name }}
+        {% if lead.status %}<span class="badge" style="background:{{ lead.status.color }}22;color:{{ lead.status.color }}">{{ lead.status.name }}</span>{% endif %}
+        {% if lead.converted_customer %}<span class="badge badge-soft-success">Converted → {{ lead.converted_customer.customer_code }}</span>{% endif %}
+    </h4>
+    <small class="text-muted">{{ lead.company|default:"—" }} · Priority:
+    <span class="badge badge-soft-{{ lead.priority|lower }}">{{ lead.priority }}</span></small>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card"><div class="card-header">Lead Information</div><div class="card-body">
+            <table class="table table-sm small">
+                <tr><td class="text-muted">Email</td><td>{{ lead.email|default:"—" }}</td></tr>
+                <tr><td class="text-muted">Phone</td><td>{{ lead.phone|default:"—" }}</td></tr>
+                <tr><td class="text-muted">Website</td><td>{{ lead.website|default:"—" }}</td></tr>
+                <tr><td class="text-muted">Source</td><td>{{ lead.source.name|default:"—" }}</td></tr>
+                <tr><td class="text-muted">Expected Revenue</td><td><strong>${{ lead.expected_revenue }}</strong></td></tr>
+                <tr><td class="text-muted">Assigned To</td><td>{{ lead.assigned_to.get_full_name|default:"Unassigned" }}</td></tr>
+                <tr><td class="text-muted">Created</td><td>{{ lead.created_at|date:"d M Y" }}</td></tr>
+            </table>
+            {% if lead.notes %}<p class="small border rounded p-2 bg-light-subtle">{{ lead.notes }}</p>{% endif %}
+            {% if not lead.converted_customer %}
+            <button class="btn btn-success w-100" onclick="convertLead({{ lead.pk }})">
+                <i class="fa-solid fa-right-left me-1"></i>Convert to Customer
+            </button>
+            {% endif %}
+        </div></div>
+
+        <div class="card mt-3"><div class="card-header d-flex justify-content-between align-items-center">
+            Change Status
+        </div><div class="card-body">
+            <select id="statusSelect" class="form-select">
+                <option value="">-- Select status --</option>
+                {% for s in statuses %}<option value="{{ s.id }}" {% if s.id == lead.status_id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+            </select>
+        </div></div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card h-100"><div class="card-header"><i class="fa-solid fa-wave-square me-2"></i>Activities</div>
+        <div class="card-body" style="max-height:520px;overflow-y:auto">
+            <div class="timeline ps-2">
+                {% for a in activities %}
+                <div class="timeline-item">
+                    <span class="tl-icon" style="background:#6f42c1"><i class="fa-solid fa-bolt"></i></span>
+                    <div class="fw-semibold small">{{ a.activity }}</div>
+                    <div class="text-muted small">{{ a.description }}</div>
+                    <div class="text-muted smaller">{{ a.user.username|default:"System" }} · {{ a.created_at|date:"d M H:i" }}</div>
+                </div>
+                {% empty %}<p class="text-muted small">No activities yet.</p>
+                {% endfor %}
+            </div>
+        </div></div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-header"><i class="fa-solid fa-sticky-note me-2"></i>Notes</div>
+            <div class="card-body" style="max-height:300px;overflow-y:auto">
+                <form id="noteForm" class="mb-3">
+                    <input type="hidden" name="lead_id" value="{{ lead.id }}">
+                    <textarea name="note" rows="2" class="form-control mb-2" placeholder="Add note..." required></textarea>
+                    <button class="btn btn-sm btn-primary w-100">Add Note</button>
+                </form>
+                {% for n in notes %}
+                <div class="border-bottom pb-2 mb-2 small">
+                    <strong>{{ n.user.get_full_name }}</strong>
+                    <span class="text-muted">· {{ n.created_at|date:"d M H:i" }}</span>
+                    <div>{{ n.note }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">Related Deals</div>
+            <div class="list-group list-group-flush">
+                {% for d in deals %}
+                <div class="list-group-item small">{{ d.deal_name }}
+                    <span class="badge badge-soft-primary float-end">${{ d.expected_value }}</span></div>
+                {% empty %}<div class="list-group-item text-muted small">No deals yet.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$('#noteForm').on('submit', function (e) {
+    e.preventDefault();
+    $.post('/notes/add/', $(this).serialize()).done(() => location.reload());
+});
+
+function convertLead(id) {
+    Swal.fire({ title: 'Convert to Customer?', icon: 'question', showCancelButton: true, confirmButtonText: 'Convert' })
+        .then(r => { if (r.isConfirmed)
+            $.post(`/leads/${id}/convert/`).done(res =>
+                Swal.fire('Converted!', res.message, 'success').then(() => location.reload()))
+            .fail(handleAjaxError); });
+}
+</script>
+{% endblock %}

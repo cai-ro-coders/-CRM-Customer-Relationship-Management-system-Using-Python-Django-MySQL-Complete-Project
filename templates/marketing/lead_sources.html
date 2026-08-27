@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block title %}Lead Sources{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fa-solid fa-satellite-dish text-primary me-2"></i>Lead Sources</h4>
+        <small class="text-muted">Where your leads come from · <a href="/lead-statuses/">Lead statuses →</a></small>
+    </div>
+    <button class="btn btn-primary" onclick="openModal()"><i class="fa-solid fa-plus me-1"></i>New Source</button>
+</div>
+
+<div class="card"><div class="card-body">
+<table id="srcTable" class="table table-hover w-100" style="width:100%">
+    <thead><tr><th>ID</th><th>Name</th><th>Leads</th><th class="no-export">Actions</th></tr></thead>
+</table>
+</div></div>
+
+<div class="modal fade" id="srcModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="srcForm">
+                <input type="hidden" name="id" id="ls_id">
+                <div class="modal-header"><h5 class="modal-title">Lead Source</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <label class="form-label">Name *</label>
+                    <input name="name" class="form-control" required placeholder="e.g. Website, Referral, Trade Show">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary px-4">Save Source</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let srcTable;
+$(function () {
+    srcTable = initDataTable('#srcTable', '/lead-sources/data/', [
+        { data: 'id' },
+        { data: 'name', className: 'fw-semibold' },
+        { data: 'usage', render: d => `<span class="badge badge-soft-primary">${d}</span>` },
+        { data: null, className: 'no-export', orderable: false, searchable: false, render: (d, t, r) => `
+            <button class="btn btn-sm btn-outline-warning" onclick='editRow(${JSON.stringify(JSON.stringify(r))})'><i class="fa-solid fa-pen"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteRow(${r.id})"><i class="fa-solid fa-trash"></i></button>` }
+    ], { serverSide: false });
+});
+
+function openModal() { $('#srcForm')[0].reset(); $('#ls_id').val(''); new bootstrap.Modal('#srcModal').show(); }
+
+function editRow(json) {
+    const r = JSON.parse(json);
+    $('#ls_id').val(r.id);
+    $('#srcForm input[name=name]').val(r.name);
+    new bootstrap.Modal('#srcModal').show();
+}
+
+$('#srcForm').on('submit', function (e) {
+    e.preventDefault();
+    $.post('/lead-sources/save/', $(this).serialize()).done(res => {
+        toast(res.message);
+        bootstrap.Modal.getInstance('#srcModal').hide();
+        srcTable.ajax.reload(null, false);
+    }).fail(handleAjaxError);
+});
+
+function deleteRow(id) { confirmDelete(`/lead-sources/${id}/delete/`, () => srcTable.ajax.reload(null, false)); }
+</script>
+{% endblock %}

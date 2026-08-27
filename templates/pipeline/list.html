@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% block title %}Manage Pipelines{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <a href="/pipelines/" class="small text-decoration-none"><i class="fa-solid fa-arrow-left me-1"></i>Back to Board</a>
+        <h4 class="fw-bold mb-0 mt-1"><i class="fa-solid fa-sliders text-primary me-2"></i>Manage Pipelines</h4>
+    </div>
+    <button class="btn btn-primary" onclick="openPipelineModal()"><i class="fa-solid fa-plus me-1"></i>New Pipeline</button>
+</div>
+
+<div class="row" id="pipelineCards"></div>
+
+<!-- Pipeline modal -->
+<div class="modal fade" id="pipelineModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form id="pipelineForm">
+                <input type="hidden" name="id" id="p_id">
+                <div class="modal-header"><h5 class="modal-title">Pipeline</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <div class="mb-3 d-flex gap-3 align-items-end">
+                        <div class="flex-grow-1"><label class="form-label">Pipeline Name *</label>
+                            <input name="name" class="form-control" required></div>
+                        <div class="form-check form-switch pb-2">
+                            <input type="checkbox" class="form-check-input" name="is_default" id="p_default" value="1">
+                            <label class="form-check-label" for="p_default">Default</label>
+                        </div>
+                    </div>
+                    <label class="form-label fw-semibold">Stages</label>
+                    <div id="stageRows"></div>
+                    <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="addStageRow()">
+                        <i class="fa-solid fa-plus"></i> Add Stage
+                    </button>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary px-4">Save Pipeline</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let pipelines = [];
+
+function stageRowHtml(s = {}) {
+    return `<div class="row g-2 align-items-center stage-row mt-1">
+        <input type="hidden" class="st-id" value="${s.id || ''}">
+        <div class="col-6"><input class="form-control st-name" placeholder="Stage name" value="${s.name || ''}"></div>
+        <div class="col-3"><input type="color" class="form-control form-control-color st-color" value="${s.color || '#0d6efd'}"></div>
+        <div class="col-2"><span class="badge badge-soft-secondary">${s.deal_count ?? 0} deals</span></div>
+        <div class="col-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger"
+            onclick="this.closest('.stage-row').remove()"><i class="fa-solid fa-xmark"></i></button></div>
+    </div>`;
+}
+
+function addStageRow(s) { $('#stageRows').append(stageRowHtml(s)); }
+
+function loadPipelines() {
+    $.get('/pipelines/data/').done(rows => {
+        pipelines = rows.data;
+        $('#pipelineCards').html(pipelines.map(p => `
+            <div class="col-md-6 col-xl-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="fw-bold mb-0">${p.name}
+                                ${p.is_default ? '<span class="badge bg-success-subtle text-success ms-1">Default</span>' : ''}</h6>
+                            <span class="text-muted small">${p.deal_count} deals</span>
+                        </div>
+                        ${p.stages.map(s => `<span class="badge me-1 mb-1" style="background:${s.color}22;color:${s.color}">${s.name}</span>`).join('')}
+                    </div>
+                    <div class="card-footer bg-transparent d-flex gap-2">
+                        <button class="btn btn-sm btn-outline-warning" onclick='editPipeline(${JSON.stringify(JSON.stringify(p))})'>
+                            <i class="fa-solid fa-pen me-1"></i>Edit</button>
+                        ${p.is_default ? '' : `<button class="btn btn-sm btn-outline-danger" onclick="delPipeline(${p.id})">
+                            <i class="fa-solid fa-trash me-1"></i>Delete</button>`}
+                    </div>
+                </div>
+            </div>`).join(''));
+    });
+}
+
+$(loadPipelines);
+
+function openPipelineModal() {
+    $('#pipelineForm')[0].reset();
+    $('#p_id').val('');
+    $('#stageRows').empty();
+    new bootstrap.Modal('#pipelineModal').show();
+}
+
+function editPipeline(json) {
+    const p = JSON.parse(json);
+    $('#pipelineForm')[0].reset();
+    $('#p_id').val(p.id);
+    $('#pipelineForm input[name=name]').val(p.name);
+    $('#p_default')[0].checked = p.is_default;
+    $('#stageRows').empty();
+    p.stages.forEach(s => addStageRow(s));
+    new bootstrap.Modal('#pipelineModal').show();
+}
+
+$('#pipelineForm').on('submit', function (e) {
+    e.preventDefault();
+    const stages = [];
+    $('.stage-row').each(function () {
+        const name = $(this).find('.st-name').val().trim();
+        if (name) stages.push({
+            id: $(this).find('.st-id').val() || null,
+            name: name,
+            color: $(this).find('.st-color').val()
+        });
+    });
+    $.ajax({
+        url: '/pipelines/save/', method: 'POST', contentType: 'application/json',
+        data: JSON.stringify({ id: $('#p_id').val() || null, name: this.name.value,
+                               is_default: $('#p_default')[0].checked, stages })
+    }).done(res => {
+        toast(res.message);
+        bootstrap.Modal.getInstance('#pipelineModal').hide();
+        loadPipelines();
+    }).fail(handleAjaxError);
+});
+
+function delPipeline(id) { confirmDelete(`/pipelines/${id}/delete/`, loadPipelines); }
+</script>
+{% endblock %}

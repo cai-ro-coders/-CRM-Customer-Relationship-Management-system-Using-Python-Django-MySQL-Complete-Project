@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+{% block title %}User Management{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fa-solid fa-users-gear text-primary me-2"></i>User Management</h4>
+        <small class="text-muted">Team accounts, roles and access · <a href="/roles/">Manage roles →</a></small>
+    </div>
+    <button class="btn btn-primary" onclick="openUserModal()"><i class="fa-solid fa-user-plus me-1"></i>New User</button>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex gap-2">
+        <select id="fRole" class="form-select form-select-sm w-auto"><option value="">All Roles</option>
+            {% for r in roles %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}</select>
+        <select id="fStatus" class="form-select form-select-sm w-auto"><option value="">All Statuses</option>
+            <option>Active</option><option>Inactive</option><option>Suspended</option></select>
+    </div>
+    <div class="card-body">
+<table id="usersTable" class="table table-hover w-100">
+    <thead><tr><th>ID</th><th>User</th><th>Username</th><th>Email</th><th>Phone</th>
+        <th>Role</th><th>Status</th><th>Last Login</th><th class="no-export">Actions</th></tr></thead>
+</table>
+    </div>
+</div>
+
+<div class="modal fade" id="userModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form id="userForm" enctype="multipart/form-data" novalidate>
+                <input type="hidden" name="id" id="u_id">
+                <div class="modal-header"><h5 class="modal-title" id="userModalTitle">New User</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body row g-3">
+                    <div class="col-md-4 text-center">
+                        <img id="avatarPreview" src="" alt=""
+                             class="rounded-circle border d-none mx-auto d-block"
+                             style="width:96px;height:96px;object-fit:cover">
+                        <label class="btn btn-outline-secondary btn-sm mt-2">
+                            <i class="fa-solid fa-camera me-1"></i>Upload Avatar
+                            <input type="file" name="avatar" accept=".jpg,.jpeg,.png,.gif,.webp"
+                                   hidden onchange="previewAvatar(this)">
+                        </label>
+                    </div>
+                    <div class="col-md-8 row g-3">
+                        <div class="col-md-6"><label class="form-label">First Name *</label><input name="first_name" class="form-control" required></div>
+                        <div class="col-md-6"><label class="form-label">Last Name</label><input name="last_name" class="form-control"></div>
+                        <div class="col-md-6"><label class="form-label">Username *</label><input name="username" class="form-control" required></div>
+                        <div class="col-md-6"><label class="form-label">Email *</label><input type="email" name="email" class="form-control" required></div>
+                        <div class="col-md-6"><label class="form-label">Phone</label><input name="phone" class="form-control"></div>
+                        <div class="col-md-6"><label class="form-label">Password
+                            <small class="text-muted">(blank = default Admin@123)</small></label>
+                            <input type="password" name="password" class="form-control" autocomplete="new-password"></div>
+                    </div>
+                    <div class="col-md-6"><label class="form-label">Role</label>
+                        <select name="role_id" class="form-select"><option value="">-- No role --</option>
+                            {% for r in roles %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}</select></div>
+                    <div class="col-md-3"><label class="form-label">Status</label>
+                        <select name="status" class="form-select">
+                            <option>Active</option><option>Inactive</option><option>Suspended</option></select></div>
+                    <div class="col-md-12"><label class="form-label">Address</label><input name="address" class="form-control"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary px-4"><i class="fa-solid fa-floppy-disk me-1"></i>Save User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let userTable;
+$(function () {
+    userTable = initDataTable('#usersTable', '/users/data/', [
+        { data: 'id' },
+        { data: null, render: r => {
+            const av = r.avatar ? `<img src="${r.avatar}" class="rounded-circle me-2" style="width:32px;height:32px;object-fit:cover">`
+                                 : `<span class="avatar-initials rounded-circle bg-primary bg-opacity-10 text-primary me-2">${r.name.charAt(0)}</span>`;
+            return `${av}<strong>${r.name}</strong>`; } },
+        { data: 'username', className: 'font-monospace small' },
+        { data: 'email' }, { data: 'phone' },
+        { data: 'role', render: d => d !== '-' ? `<span class="badge badge-soft-info">${d}</span>` : '<span class="text-muted">—</span>' },
+        { data: 'status', render: (d, t, r) => `<span class="badge badge-soft-${r.status_class === 'primary' ? 'info' : r.status_class}">${d}</span>` },
+        { data: 'last_login' },
+        { data: null, className: 'no-export', orderable: false, searchable: false, render: (d, t, r) => `
+            <button class="btn btn-sm btn-outline-warning" onclick='editUser(${r.id})'><i class="fa-solid fa-pen"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteUser(${r.id})"><i class="fa-solid fa-trash"></i></button>` }
+    ], {
+        filters: d => {
+            d.role_id = $('#fRole').val() || '';
+            d.status = $('#fStatus').val() || '';
+        }
+    });
+    $('#fRole,#fStatus').on('change', () => userTable.ajax.reload());
+});
+
+function previewAvatar(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = e => {
+            $('#avatarPreview').attr('src', e.target.result).removeClass('d-none');
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function openUserModal() {
+    $('#userForm')[0].reset();
+    $('#u_id').val('');
+    $('#avatarPreview').addClass('d-none');
+    $('#userModalTitle').text('New User');
+    new bootstrap.Modal('#userModal').show();
+}
+
+function editUser(id) {
+    $.get(`/users/${id}/get/`).done(res => {
+        const u = res.user;
+        const f = $('#userForm')[0];
+        f.reset();
+        $('#u_id').val(u.id);
+        for (const [k, v] of Object.entries(u)) if (f.elements[k]) f.elements[k].value = v ?? '';
+        f.password.value = '';
+        $('#userModalTitle').text(`Edit @${u.username}`);
+        new bootstrap.Modal('#userModal').show();
+    });
+}
+
+$('#userForm').on('submit', function (e) {
+    e.preventDefault();
+    $.ajax({
+        url: '/users/save/', method: 'POST',
+        data: new FormData(this), processData: false, contentType: false
+    }).done(res => {
+        toast(res.message);
+        bootstrap.Modal.getInstance('#userModal').hide();
+        userTable.ajax.reload(null, false);
+    }).fail(handleAjaxError);
+});
+
+function deleteUser(id) { confirmDelete(`/users/${id}/delete/`, () => userTable.ajax.reload(null, false)); }
+</script>
+{% endblock %}

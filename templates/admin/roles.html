@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}Roles &amp; Permissions{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fa-solid fa-user-shield text-primary me-2"></i>Roles &amp; Permissions</h4>
+        <small class="text-muted">Define what each team can access · <a href="/permissions/">Permission registry →</a></small>
+    </div>
+    <a class="btn btn-primary" href="/roles/new/"><i class="fa-solid fa-plus me-1"></i>New Role</a>
+</div>
+
+<div class="card"><div class="card-body">
+<table id="roleTable" class="table table-hover w-100" style="width:100%">
+    <thead><tr><th>ID</th><th>Role</th><th>Description</th><th>Users</th><th>Permissions</th><th class="no-export">Actions</th></tr></thead>
+</table>
+</div></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let roleTable;
+$(function () {
+    roleTable = initDataTable('#roleTable', '/roles/data/', [
+        { data: 'id' },
+        { data: 'name', className: 'fw-semibold', render: (d, t, r) =>
+            `<span class="fw-bold">${d}</span>` },
+        { data: 'description' },
+        { data: 'user_count', render: d => `<span class="badge badge-soft-info">${d}</span>` },
+        { data: 'permission_count', render: d => `<span class="badge badge-soft-success">${d}</span>` },
+        { data: null, className: 'no-export', orderable: false, searchable: false, render: (d, t, r) => `
+            <button class="btn btn-sm btn-outline-warning" onclick='editRole(${r.id})'><i class="fa-solid fa-pen"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteRole(${r.id})"><i class="fa-solid fa-trash"></i></button>` }
+    ], { serverSide: false });
+});
+
+function editRole(id) {
+    window.location.href = `/roles/${id}/edit/`;
+}
+
+function deleteRole(id) { confirmDelete(`/roles/${id}/delete/`, () => roleTable.ajax.reload(null, false)); }
+</script>
+{% endblock %}

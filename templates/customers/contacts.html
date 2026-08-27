@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}Customer Contacts{% endblock %}
+{% block content %}
+<div class="mb-3">
+    <h4 class="fw-bold mb-0"><i class="fa-solid fa-address-book text-primary me-2"></i>Customer Contacts</h4>
+    <small class="text-muted">All contacts across customer accounts</small>
+</div>
+<div class="card"><div class="card-body">
+<table id="contactsTable" class="table table-hover w-100 w-100">
+    <thead><tr><th>ID</th><th>Name</th><th>Designation</th><th>Customer</th><th>Email</th><th>Phone</th><th>Mobile</th><th>Primary</th><th class="no-export">Actions</th></tr></thead>
+</table>
+</div></div>
+
+<div class="modal fade" id="contactModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="contactForm">
+                <input type="hidden" name="id" id="ct_id">
+                <input type="hidden" name="customer_id" id="ct_customer">
+                <div class="modal-header"><h5 class="modal-title">Edit Contact</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body row g-3">
+                    <div class="col-6"><label class="form-label">First Name *</label><input name="first_name" class="form-control" required></div>
+                    <div class="col-6"><label class="form-label">Last Name *</label><input name="last_name" class="form-control" required></div>
+                    <div class="col-12"><label class="form-label">Designation</label><input name="designation" class="form-control"></div>
+                    <div class="col-12"><label class="form-label">Email</label><input type="email" name="email" class="form-control"></div>
+                    <div class="col-6"><label class="form-label">Phone</label><input name="phone" class="form-control"></div>
+                    <div class="col-6"><label class="form-label">Mobile</label><input name="mobile" class="form-control"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let ct;
+$(function () {
+    ct = initDataTable('#contactsTable', '/contacts/data/', [
+        { data: 'id' },
+        { data: 'name' },
+        { data: 'designation' },
+        { data: 'customer', render: (d, t, r) => `<a href="/customers/${r.customer_id}/" class="text-decoration-none">${d}</a>` },
+        { data: 'email' }, { data: 'phone' }, { data: 'mobile' },
+        { data: 'is_primary', render: d => d ? '<span class="badge bg-success-subtle text-success">Primary</span>' : '-' },
+        { data: null, className: 'no-export', orderable: false, render: (d, t, r) =>
+            `<button class="btn btn-sm btn-outline-warning" onclick='editContact(${JSON.stringify(JSON.stringify(r))})'><i class="fa-solid fa-pen"></i></button>
+             <button class="btn btn-sm btn-outline-danger" onclick="delContact(${r.id})"><i class="fa-solid fa-trash"></i></button>` }
+    ], { orderCol: 0 });
+});
+
+function editContact(json) {
+    const r = JSON.parse(json);
+    const f = $('#contactForm')[0];
+    f.reset();
+    $('#ct_id').val(r.id);
+    $('#ct_customer').val(r.customer_id);
+    f.first_name.value = r.name.split(' ')[0] || '';
+    f.last_name.value = r.name.split(' ').slice(1).join(' ');
+    f.designation.value = r.designation === '-' ? '' : r.designation;
+    f.email.value = r.email === '-' ? '' : r.email;
+    f.phone.value = r.phone === '-' ? '' : r.phone;
+    f.mobile.value = r.mobile === '-' ? '' : r.mobile;
+    new bootstrap.Modal('#contactModal').show();
+}
+
+$('#contactForm').on('submit', function (e) {
+    e.preventDefault();
+    $.post('/contacts/save/', $(this).serialize()).done(res => {
+        toast(res.message);
+        bootstrap.Modal.getInstance('#contactModal').hide();
+        ct.ajax.reload(null, false);
+    }).fail(handleAjaxError);
+});
+
+function delContact(id) { confirmDelete(`/contacts/${id}/delete/`, () => ct.ajax.reload(null, false)); }
+</script>
+{% endblock %}

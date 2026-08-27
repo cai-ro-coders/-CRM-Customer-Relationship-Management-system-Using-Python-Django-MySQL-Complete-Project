@@ -1,0 +1,268 @@
+{% extends 'base.html' %}
+{% block title %}{{ customer.company_name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <a href="/customers/" class="small text-decoration-none"><i class="fa-solid fa-arrow-left me-1"></i>Back to Customers</a>
+        <h4 class="fw-bold mb-0 mt-1">{{ customer.company_name }}
+            <span class="badge badge-soft-{% if customer.status == 'Active' %}success{% elif customer.status == 'Prospect' %}info{% else %}secondary{% endif %} align-middle">{{ customer.status }}</span>
+        </h4>
+        <small class="text-muted">{{ customer.customer_code }} · Created {{ customer.created_at|date:"d M Y" }}</small>
+    </div>
+    <div>
+        <button class="btn btn-outline-primary" onclick="openContactModal()">
+            <i class="fa-solid fa-user-plus me-1"></i>Add Contact</button>
+        <a href="/customers/{{ customer.id }}/edit/" class="btn btn-primary">
+            <i class="fa-solid fa-pen me-1"></i>Edit Customer
+        </a>
+    </div>
+</div>
+
+<ul class="nav nav-tabs card-tabs mb-0" role="tablist">
+    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#overview"><i class="fa-solid fa-circle-info me-1"></i>Overview & Timeline</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#contacts"><i class="fa-solid fa-address-book me-1"></i>Contacts ({{ contacts|length }})</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#notes"><i class="fa-solid fa-sticky-note me-1"></i>Notes ({{ notes|length }})</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#documents"><i class="fa-solid fa-folder me-1"></i>Documents ({{ documents|length }})</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#deals"><i class="fa-solid fa-handshake me-1"></i>Deals & Invoices</a></li>
+</ul>
+
+<div class="card border-top-0" style="border-radius: 0 .85rem .85rem .85rem;">
+    <div class="card-body tab-content">
+
+        <!-- Overview -->
+        <div class="tab-pane fade show active" id="overview">
+            <div class="row g-4">
+                <div class="col-lg-5">
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        {% if customer.image %}
+                        <img src="{{ customer.image.url }}" class="avatar-lg" alt="">
+                        {% else %}
+                        <div class="avatar-lg avatar-initials bg-primary text-white">{{ customer.first_name|slice:":1" }}{{ customer.last_name|slice:":1" }}</div>
+                        {% endif %}
+                        <div>
+                            <h5 class="fw-bold mb-1">{{ customer.full_name }}</h5>
+                            <span class="badge badge-soft-info me-1">{{ customer.customer_type }}</span>
+                            {% for tm in customer.customertagmap_set.all %}
+                            <span class="badge" style="background: {{ tm.tag.color }}22; color:{{ tm.tag.color }}">{{ tm.tag.name }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <table class="table table-sm small">
+                        <tr><td class="text-muted">Email</td><td>{{ customer.email|default:"—" }}</td></tr>
+                        <tr><td class="text-muted">Phone / Mobile</td><td>{{ customer.phone|default:"—" }} / {{ customer.mobile|default:"—" }}</td></tr>
+                        <tr><td class="text-muted">Website</td><td>{{ customer.website|default:"—" }}</td></tr>
+                        <tr><td class="text-muted">Industry</td><td>{{ customer.industry|default:"—" }}</td></tr>
+                        <tr><td class="text-muted">Tax Number</td><td>{{ customer.tax_number|default:"—" }}</td></tr>
+                        <tr><td class="text-muted">Location</td><td>{{ customer.city }}, {{ customer.state }}, {{ customer.country }} {{ customer.postal_code }}</td></tr>
+                        <tr><td class="text-muted">Billing Address</td><td>{{ customer.billing_address|default:"—" }}</td></tr>
+                        <tr><td class="text-muted">Shipping Address</td><td>{{ customer.shipping_address|default:"—" }}</td></tr>
+                        <tr><td class="text-muted">Assigned To</td><td>{{ customer.assigned_to.get_full_name|default:"Unassigned" }}</td></tr>
+                        <tr><td class="text-muted">Notes</td><td>{{ customer.notes|default:"—"|linebreaksbr }}</td></tr>
+                    </table>
+                </div>
+                <div class="col-lg-7">
+                    <h6 class="fw-bold mb-3"><i class="fa-solid fa-timeline text-primary me-2"></i>Customer Timeline</h6>
+                    <div class="timeline ps-2" style="max-height: 480px; overflow-y: auto">
+                        {% for item in timeline %}
+                        <div class="timeline-item">
+                            <span class="tl-icon"><i class="fa-solid {{ item.icon }}"></i></span>
+                            <div class="small">{{ item.text }}</div>
+                            <div class="text-muted smaller">{{ item.when|date:"d M Y H:i" }}</div>
+                        </div>
+                        {% empty %}
+                        <p class="text-muted small">No activity yet.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contacts -->
+        <div class="tab-pane fade" id="contacts">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead><tr><th>Name</th><th>Designation</th><th>Email</th><th>Phone</th><th>Mobile</th><th>Primary</th><th></th></tr></thead>
+                    <tbody>
+                    {% for c in contacts %}
+                    <tr>
+                        <td class="fw-semibold">{{ c.full_name }}</td>
+                        <td>{{ c.designation|default:"—" }}</td>
+                        <td>{{ c.email|default:"—" }}</td>
+                        <td>{{ c.phone|default:"—" }}</td>
+                        <td>{{ c.mobile|default:"—" }}</td>
+                        <td>{% if c.is_primary %}<span class="badge bg-success-subtle text-success">Primary</span>{% endif %}</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-warning" onclick='editContact({{ c.pk }}, "{{ c.first_name|escapejs }}", "{{ c.last_name|escapejs }}", "{{ c.designation|escapejs }}", "{{ c.email|escapejs }}", "{{ c.phone|escapejs }}", "{{ c.mobile|escapejs }}", {{ c.is_primary|yesno:"1,0" }})'>
+                                <i class="fa-solid fa-pen"></i></button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteContact({{ c.pk }})"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>
+                    {% empty %}<tr><td colspan="7" class="text-muted">No contacts. Add one.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="tab-pane fade" id="notes">
+            <form id="noteForm" class="d-flex gap-2 mb-4">
+                <input type="hidden" name="customer_id" value="{{ customer.id }}">
+                <textarea name="note" rows="2" class="form-control" placeholder="Add a note about {{ customer.company_name }}..." required></textarea>
+                <button class="btn btn-primary px-3 align-self-start"><i class="fa-solid fa-plus"></i></button>
+            </form>
+            {% for n in notes %}
+            <div class="d-flex gap-3 border-bottom pb-3 mb-3">
+                <span class="avatar-sm avatar-initials bg-secondary-subtle text-secondary">{{ n.user.username|slice:":1"|upper }}</span>
+                <div class="flex-grow-1">
+                    <div class="small fw-semibold">{{ n.user.get_full_name }} <span class="text-muted fw-normal">· {{ n.created_at|date:"d M Y H:i" }}</span></div>
+                    <div class="small">{{ n.note|linebreaksbr }}</div>
+                </div>
+                {% if n.user_id == request.user.id or request.user.is_superuser %}
+                <button class="btn btn-sm btn-link text-danger" onclick="deleteNote({{ n.pk }})"><i class="fa-solid fa-trash-can"></i></button>
+                {% endif %}
+            </div>
+            {% empty %}<p class="text-muted">No notes yet.</p>
+            {% endfor %}
+        </div>
+
+        <!-- Documents -->
+        <div class="tab-pane fade" id="documents">
+            <form id="docForm" class="input-group mb-4 w-auto gap-2">
+                <input type="hidden" name="customer_id" value="{{ customer.id }}">
+                <input type="file" name="file" class="form-control" required>
+                <button class="btn btn-primary px-3"><i class="fa-solid fa-upload me-1"></i>Upload</button>
+            </form>
+            <div class="row g-3">
+                {% for d in documents %}
+                <div class="col-md-6 col-xl-4">
+                    <div class="border rounded p-3 d-flex align-items-center gap-3 hover-lift">
+                        <i class="fa-solid fa-file-lines fa-2x text-primary opacity-75"></i>
+                        <div class="flex-grow-1 overflow-hidden">
+                            <div class="small fw-semibold text-truncate">{{ d.file_name }}</div>
+                            <div class="text-muted smaller">{{ d.file_size|filesizeformat }} · {{ d.created_at|date:"d M Y" }}</div>
+                        </div>
+                        <a href="{{ d.file_path.url }}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-download"></i></a>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteDoc({{ d.pk }})"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+                {% empty %}<p class="text-muted">No documents uploaded.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Deals & invoices -->
+        <div class="tab-pane fade" id="deals">
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <h6 class="fw-bold mb-3">Deals</h6>
+                    <div class="table-responsive"><table class="table table-sm table-hover">
+                        <thead><tr><th>Deal</th><th>Stage</th><th>Value</th><th>Status</th></tr></thead>
+                        <tbody>
+                        {% for d in deals %}
+                        <tr><td>{{ d.deal_name }}</td>
+                            <td><span class="badge" style="background:{{ d.stage.color }}22;color:{{ d.stage.color }}">{{ d.stage.name }}</span></td>
+                            <td>${{ d.expected_value }}</td>
+                            <td>{{ d.status }}</td></tr>
+                        {% empty %}<tr><td colspan="4" class="text-muted">No deals.</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table></div>
+                </div>
+                <div class="col-lg-6">
+                    <h6 class="fw-bold mb-3">Invoices</h6>
+                    <div class="table-responsive"><table class="table table-sm table-hover">
+                        <thead><tr><th>Invoice</th><th>Date</th><th>Total</th><th>Status</th></tr></thead>
+                        <tbody>
+                        {% for i in invoices %}
+                        <tr><td>{{ i.invoice_number }}</td>
+                            <td>{{ i.invoice_date|date:"d M Y" }}</td>
+                            <td>${{ i.total }}</td>
+                            <td>{{ i.status }}</td></tr>
+                        {% empty %}<tr><td colspan="4" class="text-muted">No invoices.</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Contact modal -->
+<div class="modal fade" id="contactModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="contactForm">
+                <input type="hidden" name="id" id="ct_id">
+                <input type="hidden" name="customer_id" value="{{ customer.id }}">
+                <div class="modal-header"><h5 class="modal-title" id="contactModalTitle">Add Contact</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body row g-3">
+                    <div class="col-6"><label class="form-label">First Name *</label><input name="first_name" class="form-control" required></div>
+                    <div class="col-6"><label class="form-label">Last Name *</label><input name="last_name" class="form-control" required></div>
+                    <div class="col-6"><label class="form-label">Designation</label><input name="designation" class="form-control"></div>
+                    <div class="col-6 form-check-inline-switch-div"><label class="form-label d-block">Primary Contact</label>
+                        <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="is_primary" value="1" id="isPrimarySwitch"><label class="form-check-label small" for="isPrimarySwitch">Set as primary</label></div>
+                    </div>
+                    <div class="col-12"><label class="form-label">Email</label><input type="email" name="email" class="form-control"></div>
+                    <div class="col-6"><label class="form-label">Phone</label><input name="phone" class="form-control"></div>
+                    <div class="col-6"><label class="form-label">Mobile</label><input name="mobile" class="form-control"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary">Save Contact</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* Contacts */
+function openContactModal() {
+    $('#contactForm')[0].reset();
+    $('#ct_id').val('');
+    $('#contactModalTitle').text('Add Contact');
+    new bootstrap.Modal('#contactModal').show();
+}
+function editContact(id, fn, ln, desig, email, phone, mobile, isPrimary) {
+    $('#contactForm')[0].reset();
+    $('#ct_id').val(id);
+    const f = $('#contactForm')[0];
+    f.first_name.value = fn; f.last_name.value = ln; f.designation.value = desig;
+    f.email.value = email; f.phone.value = phone; f.mobile.value = mobile;
+    f.is_primary.checked = !!parseInt(isPrimary);
+    $('#contactModalTitle').text('Edit Contact');
+    new bootstrap.Modal('#contactModal').show();
+}
+$('#contactForm').on('submit', function (e) {
+    e.preventDefault();
+    const data = $(this).serialize();
+    $.post('/contacts/save/', data).done(res => {
+        toast(res.message); location.reload();
+    }).fail(handleAjaxError);
+});
+function deleteContact(id) { confirmDelete(`/contacts/${id}/delete/`, () => location.reload()); }
+
+/* Notes */
+$('#noteForm').on('submit', function (e) {
+    e.preventDefault();
+    $.post('/notes/add/', $(this).serialize()).done(() => location.reload());
+});
+function deleteNote(id) { confirmDelete(`/notes/${id}/delete/`, () => location.reload(), 'Delete this note?'); }
+
+/* Documents */
+$('#docForm').on('submit', function (e) {
+    e.preventDefault();
+    $.ajax({ url: '/documents/upload/', type: 'POST', data: new FormData(this),
+             contentType: false, processData: false })
+        .done(res => { toast(res.message); location.reload(); })
+        .fail(handleAjaxError);
+});
+function deleteDoc(id) { confirmDelete(`/documents/${id}/delete/`, () => location.reload()); }
+</script>
+{% endblock %}

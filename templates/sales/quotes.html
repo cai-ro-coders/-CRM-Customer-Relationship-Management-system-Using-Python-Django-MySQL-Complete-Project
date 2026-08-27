@@ -1,0 +1,227 @@
+{% extends 'base.html' %}
+{% block title %}Quotes{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fa-solid fa-file-signature text-primary me-2"></i>Quotes</h4>
+        <small class="text-muted">Create quotes and convert to invoices</small>
+    </div>
+    <button class="btn btn-primary" onclick="openQuoteModal()"><i class="fa-solid fa-plus me-1"></i>New Quote</button>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-4"><div class="card stat-card text-primary"><div class="card-body d-flex gap-3 align-items-center">
+        <div class="stat-icon bg-primary"><i class="fa-solid fa-file-signature"></i></div>
+        <div><h5 class="mb-0">{{ stats.total }}</h5><small>Total Quotes</small></div></div></div></div>
+    <div class="col-md-4"><div class="card stat-card text-success"><div class="card-body d-flex gap-3 align-items-center">
+        <div class="stat-icon bg-success"><i class="fa-solid fa-circle-check"></i></div>
+        <div><h5 class="mb-0">${{ stats.accepted_value|floatformat:0 }}</h5><small>Accepted Value</small></div></div></div></div>
+    <div class="col-md-4"><div class="card stat-card text-warning"><div class="card-body d-flex gap-3 align-items-center">
+        <div class="stat-icon bg-warning"><i class="fa-solid fa-clock"></i></div>
+        <div><h5 class="mb-0">{{ stats.pending }}</h5><small>Awaiting Response</small></div></div></div></div>
+</div>
+
+<div class="card"><div class="card-body">
+<table id="quotesTable" class="table table-hover w-100">
+    <thead><tr><th>ID</th><th>Quote #</th><th>Customer</th><th>Date</th><th>Expiry</th><th>Total</th>
+        <th>Status</th><th>Created By</th><th class="no-export">Actions</th></tr></thead>
+</table>
+</div></div>
+
+<!-- Quote modal with line items -->
+<div class="modal fade" id="quoteModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <form id="quoteForm" onsubmit="saveQuote(event)">
+                <input type="hidden" name="id" id="q_id">
+                <div class="modal-header"><h5 class="modal-title" id="quoteModalTitle">New Quote</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6"><label class="form-label">Customer *</label>
+                            <select name="customer_id" class="form-select" required>
+                                <option value="">-- Select --</option>
+                                {% for c in customers %}<option value="{{ c.id }}">{{ c.company_name }}</option>{% endfor %}
+                            </select></div>
+                        <div class="col-md-3"><label class="form-label">Quote Date</label>
+                            <input type="date" name="quote_date" id="qDate" class="form-control"></div>
+                        <div class="col-md-3"><label class="form-label">Expiry Date</label>
+                            <input type="date" name="expiry_date" class="form-control"></div>
+                    </div>
+                    <table class="table table-sm align-middle" id="itemsTable">
+                        <thead><tr><th style="min-width:220px">Product</th><th style="width:90px">Qty</th>
+                            <th style="width:120px">Price</th><th style="width:100px">Tax %</th>
+                            <th style="width:100px">Disc %</th><th class="text-end">Total</th>
+                            <th class="no-export"></th></tr></thead>
+                        <tbody id="itemRows"></tbody>
+                    </table>
+                    <button type="button" class="btn btn-sm btn-outline-primary"
+                            onclick="addItemRow()"><i class="fa-solid fa-plus me-1"></i>Add Item</button>
+                    <div class="row justify-content-end mt-3">
+                        <div class="col-md-4">
+                            <table class="table table-sm small">
+                                <tr><td>Subtotal</td><td class="text-end fw-semibold" id="qSubtotal">$0.00</td></tr>
+                                <tr><td>Tax</td><td class="text-end fw-semibold" id="qTax">$0.00</td></tr>
+                                <tr><td>Discount ($)</td>
+                                    <td class="text-end" style="width:110px">
+                                        <input name="discount_total" id="qDiscount" value="0"
+                                               class="form-control form-control-sm text-end" onchange="recalcTotals()"></td></tr>
+                                <tr class="table-light"><td><strong>Total</strong></td>
+                                    <td class="text-end fs-5 fw-bold text-success" id="qTotal">$0.00</td></tr>
+                            </table>
+                        </div>
+                    </div>
+                    <textarea name="notes" rows="2" class="form-control" placeholder="Notes / terms..."></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary px-4"><i class="fa-solid fa-floppy-disk me-1"></i>Save Quote</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const products = [
+    {% for p in products %}{id: {{ p.id }}, name: "{{ p.product_name|escapejs }}", price: '{{ p.unit_price }}', tax: '{{ p.tax_rate }}'}{% if not forloop.last %},{% endif %}{% endfor %}
+];
+let quoteTable;
+
+$(function () {
+    quoteTable = initDataTable('#quotesTable', '/quotes/data/', [
+        { data: 'id' },
+        { data: 'quote_number', className: 'font-monospace' },
+        { data: 'customer' }, { data: 'quote_date' }, { data: 'expiry_date' },
+        { data: 'total', render: d => '<strong>$' + d + '</strong>' },
+        { data: 'status', render: (d, t, r) => `<span class="badge badge-soft-${r.status_class}">${d}</span>` },
+        { data: 'created_by' },
+        { data: null, className: 'no-export', orderable: false, searchable: false, render: (d, t, r) => `
+            <a href="/quotes/${r.id}/" class="btn btn-sm btn-outline-primary" title="View"><i class="fa-solid fa-eye"></i></a>
+            <button class="btn btn-sm btn-outline-success" title="Convert to invoice" onclick="convertQuote(${r.id})"><i class="fa-solid fa-right-left"></i></button>
+            <button class="btn btn-sm btn-outline-warning" onclick='editQuote(${r.id})'><i class="fa-solid fa-pen"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteQuote(${r.id})"><i class="fa-solid fa-trash"></i></button>` }
+    ], { orderCol: 1 });
+});
+
+function openQuoteModal(items = []) {
+    $('#q_id').val('');
+    $('#quoteForm')[0].reset();
+    if (!$('#qDate').val()) $('#qDate').val(new Date().toISOString().slice(0, 10));
+    $('#qDiscount').val('0');
+    $('#itemRows').empty();
+    if (!items.length) addItemRow();
+    else items.forEach(it => addItemRow(it));
+    recalcTotals();
+    $('#quoteModalTitle').text('New Quote');
+    new bootstrap.Modal('#quoteModal').show();
+}
+
+function addItemRow(it = {}) {
+    const opts = products.map(p =>
+        `<option value="${p.id}" data-price="${p.price}" data-tax="${p.tax}" ${it.product_id == p.id ? 'selected' : ''}>${p.name}</option>`).join('');
+    const row = $(`<tr>
+        <td><select class="form-select form-select-sm it-product" onchange="onProductPick(this)">
+            <option value="">-- Custom --</option>${opts}</select></td>
+        <td><input type="number" min="1" step="1" class="form-control form-control-sm it-qty text-end" value="${it.quantity || 1}" oninput="recalcTotals()"></td>
+        <td><input type="number" min="0" step="0.01" class="form-control form-control-sm it-price text-end" value="${it.price || 0}" oninput="recalcTotals()"></td>
+        <td><input type="number" min="0" max="100" step="0.01" class="form-control form-control-sm it-tax text-end" value="${it.tax || 0}" oninput="recalcTotals()"></td>
+        <td><input type="number" min="0" max="100" step="0.01" class="form-control form-control-sm it-disc text-end" value="${it.discount || 0}" oninput="recalcTotals()"></td>
+        <td class="text-end it-total fw-semibold align-middle">0.00</td>
+        <td class="text-end no-export"><button type="button" class="btn btn-sm btn-link text-danger"
+            onclick="$(this).closest('tr').remove(); recalcTotals();"><i class="fa-solid fa-xmark"></i></button></td>
+    </tr>`);
+    if (it.price !== undefined) row.find('.it-price').val(it.price);
+    if (it.tax !== undefined) row.find('.it-tax').val(it.tax);
+    $('#itemRows').append(row);
+    recalcTotals();
+}
+
+function onProductPick(sel) {
+    const opt = sel.selectedOptions[0];
+    if (opt && opt.dataset.price) {
+        const tr = $(sel).closest('tr');
+        tr.find('.it-price').val(opt.dataset.price);
+        tr.find('.it-tax').val(opt.dataset.tax || 0);
+        tr.find('.it-qty').val(tr.find('.it-qty').val() || 1);
+        recalcTotals();
+    }
+}
+
+function collectItems() {
+    const items = [];
+    $('#itemRows tr').each(function () {
+        items.push({
+            product_id: $(this).find('.it-product').val() || null,
+            quantity: $(this).find('.it-qty').val(),
+            price: $(this).find('.it-price').val(),
+            tax: $(this).find('.it-tax').val(),
+            discount: $(this).find('.it-disc').val()
+        });
+    });
+    return items.filter(i => Number(i.quantity) > 0 && Number(i.price) >= 0);
+}
+
+function recalcTotals() {
+    let sub = 0, tax = 0;
+    $('#itemRows tr').each(function () {
+        const q = +$(this).find('.it-qty').val() || 0;
+        const p = +$(this).find('.it-price').val() || 0;
+        const t = +$(this).find('.it-tax').val() || 0;
+        const dc = +$(this).find('.it-disc').val() || 0;
+        const lineSub = q * p;
+        const lineTotal = lineSub + lineSub * t / 100 - lineSub * dc / 100;
+        $(this).find('.it-total').text(lineTotal.toFixed(2));
+        sub += lineSub; tax += lineSub * t / 100;
+    });
+    const disc = +($('#qDiscount').val() || 0);
+    $('#qSubtotal').text('$' + sub.toFixed(2));
+    $('#qTax').text('$' + tax.toFixed(2));
+    $('#qTotal').text('$' + (sub + tax - disc).toFixed(2));
+}
+
+function saveQuote(e) {
+    e.preventDefault();
+    const f = e.target;
+    const fd = new FormData(f);
+    fd.append('items', JSON.stringify(collectItems()));
+    $.ajax({ url: '/quotes/save/', method: 'POST', data: fd, processData: false, contentType: false })
+        .done(res => {
+            toast(res.message);
+            bootstrap.Modal.getInstance('#quoteModal').hide();
+            quoteTable.ajax.reload(null, false);
+        }).fail(handleAjaxError);
+}
+
+function editQuote(id) {
+    $.get(`/quotes/${id}/get/`).done(res => {
+        openQuoteModal(res.items);
+        const q = res.quote;
+        const f = $('#quoteForm')[0];
+        $('#q_id').val(q.id);
+        f.customer_id.value = q.customer_id || '';
+        f.quote_date.value = q.quote_date || '';
+        f.expiry_date.value = q.expiry_date || '';
+        f.notes.value = q.notes || '';
+        $('#qDiscount').val(q.discount_total || 0);
+        recalcTotals();
+        $('#quoteModalTitle').text(`Edit Quote`);
+        // reopen on top of the fresh one
+        bootstrap.Modal.getOrCreateInstance('#quoteModal').show();
+    });
+}
+
+function convertQuote(id) {
+    Swal.fire({ title: 'Convert to Invoice?', icon: 'question', showCancelButton: true, confirmButtonText: 'Convert' })
+        .then(r => { if (r.isConfirmed)
+            $.post(`/quotes/${id}/convert/`).done(res =>
+                Swal.fire('Done!', res.message, 'success')
+                    .then(() => location.href = `/invoices/${res.invoice_id}/`))
+            .fail(handleAjaxError); });
+}
+
+function deleteQuote(id) { confirmDelete(`/quotes/${id}/delete/`, () => quoteTable.ajax.reload(null, false)); }
+</script>
+{% endblock %}

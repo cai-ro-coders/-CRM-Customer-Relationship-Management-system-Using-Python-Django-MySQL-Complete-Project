@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% block title %}Support Tickets{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fa-solid fa-headset text-primary me-2"></i>Support Tickets</h4>
+        <small class="text-muted">Customer issues &amp; requests · <a href="/ticket-categories/">Categories →</a></small>
+    </div>
+    <button class="btn btn-primary" onclick="openTicketModal()"><i class="fa-solid fa-plus me-1"></i>New Ticket</button>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex gap-2 flex-wrap">
+        <select id="fStatus" class="form-select form-select-sm w-auto"><option value="">All Statuses</option>
+            <option>Open</option><option>In Progress</option><option>On Hold</option><option>Closed</option></select>
+        <select id="fPriority" class="form-select form-select-sm w-auto"><option value="">All Priorities</option>
+            <option>Low</option><option>Medium</option><option>High</option><option>Urgent</option></select>
+    </div>
+    <div class="card-body">
+<table id="ticketsTable" class="table table-hover w-100">
+    <thead><tr><th>ID</th><th>Ticket #</th><th>Subject</th><th>Customer</th><th>Category</th>
+        <th>Priority</th><th>Status</th><th>Assigned</th><th>Replies</th><th>Created</th><th class="no-export">Actions</th></tr></thead>
+</table>
+    </div>
+</div>
+
+<div class="modal fade" id="ticketModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form id="ticketForm" novalidate>
+                <input type="hidden" name="id" id="tk_id">
+                <div class="modal-header"><h5 class="modal-title" id="ticketModalTitle">New Ticket</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body row g-3">
+                    <div class="col-md-8"><label class="form-label">Subject *</label><input name="subject" class="form-control" required></div>
+                    <div class="col-md-4"><label class="form-label">Status</label>
+                        <select name="status" class="form-select">
+                            <option>Open</option><option>In Progress</option><option>On Hold</option><option>Closed</option>
+                        </select></div>
+                    <div class="col-md-6"><label class="form-label">Customer *</label>
+                        <select name="customer_id" class="form-select" required>
+                            <option value="">-- Select --</option>
+                            {% for c in customers %}<option value="{{ c.id }}">{{ c.company_name }}</option>{% endfor %}
+                        </select></div>
+                    <div class="col-md-6"><label class="form-label">Category</label>
+                        <select name="category_id" class="form-select"><option value="">--</option>
+                            {% for c in categories %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></div>
+                    <div class="col-md-4"><label class="form-label">Priority</label>
+                        <select name="priority" class="form-select">
+                            <option>Low</option><option selected>Medium</option><option>High</option><option>Urgent</option>
+                        </select></div>
+                    <div class="col-md-8"><label class="form-label">Assign To</label>
+                        <select name="assigned_to" class="form-select"><option value="">-- Unassigned --</option>
+                            {% for a in agents %}<option value="{{ a.id }}">{{ a.get_full_name }} ({{ a.role.name|default:'—' }})</option>{% endfor %}
+                        </select></div>
+                    <div class="col-12"><label class="form-label">Description</label>
+                        <textarea name="description" rows="4" class="form-control"></textarea></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary px-4"><i class="fa-solid fa-floppy-disk me-1"></i>Save Ticket</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let ticketTable;
+$(function () {
+    ticketTable = initDataTable('#ticketsTable', '/tickets/data/', [
+        { data: 'id' },
+        { data: null, render: r => `<a href="/tickets/${r.id}/" class="font-monospace text-decoration-none">${r.ticket_number}</a>` },
+        { data: 'subject', className: 'fw-semibold', render: (d, t, r) => `<a href="/tickets/${r.id}/" class="text-decoration-none">${d}</a>` },
+        { data: 'customer' }, { data: 'category' },
+        { data: 'priority', render: (d, t, r) => `<span class="badge badge-soft-${r.priority_class}">${d}</span>` },
+        { data: 'status', render: (d, t, r) => `<span class="badge badge-soft-${r.status_class === 'primary' ? 'info' : r.status_class}">${d}</span>` },
+        { data: 'assigned_to' },
+        { data: 'replies', render: d => `<span class="badge badge-soft-secondary"><i class="fa-solid fa-comment-dots me-1"></i>${d}</span>` },
+        { data: 'created_at' },
+        { data: null, className: 'no-export', orderable: false, searchable: false, render: (d, t, r) => `
+            <a href="/tickets/${r.id}/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-eye"></i></a>
+            <button class="btn btn-sm btn-outline-warning" onclick='editTicket(${r.id})'><i class="fa-solid fa-pen"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteTicket(${r.id})"><i class="fa-solid fa-trash"></i></button>` }
+    ], {
+        filters: d => {
+            d.status = $('#fStatus').val() || '';
+            d.priority = $('#fPriority').val() || '';
+        }
+    });
+    $('#fStatus,#fPriority').on('change', () => ticketTable.ajax.reload());
+});
+
+function openTicketModal() {
+    $('#ticketForm')[0].reset();
+    $('#tk_id').val('');
+    $('#ticketModalTitle').text('New Ticket');
+    new bootstrap.Modal('#ticketModal').show();
+}
+
+function editTicket(id) {
+    $.get(`/tickets/${id}/get/`).done(res => {
+        const t = res.ticket;
+        const f = $('#ticketForm')[0];
+        f.reset();
+        for (const [k, v] of Object.entries(t)) if (f.elements[k]) f.elements[k].value = v ?? '';
+        $('#ticketModalTitle').text(`Edit ${t.subject.slice(0, 30)}…`);
+        new bootstrap.Modal('#ticketModal').show();
+    });
+}
+
+$('#ticketForm').on('submit', function (e) {
+    e.preventDefault();
+    $.post('/tickets/save/', $(this).serialize()).done(res => {
+        toast(res.message);
+        bootstrap.Modal.getInstance('#ticketModal').hide();
+        ticketTable.ajax.reload(null, false);
+    }).fail(handleAjaxError);
+});
+
+function deleteTicket(id) { confirmDelete(`/tickets/${id}/delete/`, () => ticketTable.ajax.reload(null, false)); }
+</script>
+{% endblock %}

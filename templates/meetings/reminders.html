@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block title %}Reminders{% endblock %}
+{% block content %}
+<h4 class="fw-bold mb-3"><i class="fa-solid fa-bell text-primary me-2"></i>Reminders &amp; Alerts</h4>
+
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card h-100 border-top border-warning border-3">
+            <div class="card-header d-flex justify-content-between">
+                <span><i class="fa-regular fa-calendar-check me-2 text-warning"></i>Meetings — Next 7 Days</span>
+                <span class="badge badge-soft-warning">{{ upcoming_meetings|length }}</span>
+            </div>
+            <div class="card-body p-0" style="max-height:60vh;overflow-y:auto">
+                <div class="list-group list-group-flush">
+                    {% for m in upcoming_meetings %}
+                    <div class="list-group-item">
+                        <div class="fw-semibold small">{{ m.title }}</div>
+                        <div class="text-muted smaller">
+                            <i class="fa-regular fa-clock me-1"></i>{{ m.meeting_date }} {{ m.start_time }}
+                            {% if m.customer %}· {{ m.customer.company_name }}{% endif %}
+                        </div>
+                    </div>
+                    {% empty %}<div class="list-group-item text-muted small">No upcoming meetings.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card h-100 border-top border-primary border-3">
+            <div class="card-header d-flex justify-content-between">
+                <span><i class="fa-solid fa-hourglass-half me-2 text-primary"></i>Tasks Due Soon</span>
+                <span class="badge badge-soft-primary">{{ due_tasks|length }}</span>
+            </div>
+            <div class="card-body p-0" style="max-height:60vh;overflow-y:auto">
+                <div class="list-group list-group-flush">
+                    {% for t in due_tasks %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center gap-2">
+                            <span class="small fw-semibold">{{ t.title }}</span>
+                            <span class="badge badge-soft-{{ t.priority|lower }}">{{ t.priority }}</span>
+                        </div>
+                        <div class="{% if t.overdue %}text-danger fw-bold{% else %}text-muted{% endif %} smaller mt-1">
+                            Due {{ t.due_date }}
+                        </div>
+                    </div>
+                    {% empty %}<div class="list-group-item text-muted small">Nothing due soon.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card h-100 border-top border-danger border-3">
+            <div class="card-header d-flex justify-content-between">
+                <span><i class="fa-solid fa-triangle-exclamation me-2 text-danger"></i>Overdue Tasks</span>
+                <span class="badge badge-soft-danger">{{ overdue_tasks|length }}</span>
+            </div>
+            <div class="card-body p-0" style="max-height:60vh;overflow-y:auto">
+                <div class="list-group list-group-flush">
+                    {% for t in overdue_tasks %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center gap-2">
+                            <span class="small fw-semibold">{{ t.title }}</span>
+                            <span class="badge badge-soft-danger">Overdue</span>
+                        </div>
+                        <div class="text-muted smaller mt-1">Was due {{ t.due_date }}</div>
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-center py-4">
+                        <i class="fa-solid fa-circle-check fa-2x text-success mb-2"></i>
+                        <p class="text-muted small mb-0">No overdue tasks. Great job!</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}{% endblock %}

@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<h4 class="fw-bold mb-3"><i class="fa-solid fa-chart-pie text-primary me-2"></i>Reports &amp; Analytics</h4>
+
+<div class="row g-3">
+    <div class="col-md-3"><div class="card stat-card text-primary"><div class="card-body d-flex gap-3 align-items-center">
+        <div class="stat-icon bg-primary"><i class="fa-solid fa-building-user"></i></div>
+        <div><h5 class="mb-0">{{ stats.customers }}</h5><small>Active Customers</small></div></div></div></div>
+    <div class="col-md-3"><div class="card stat-card text-info"><div class="card-body d-flex gap-3 align-items-center">
+        <div class="stat-icon bg-info"><i class="fa-solid fa-filter"></i></div>
+        <div><h5 class="mb-0">{{ stats.leads }}</h5><small>Leads</small></div></div></div></div>
+    <div class="col-md-3"><div class="card stat-card text-warning"><div class="card-body d-flex gap-3 align-items-center">
+        <div class="stat-icon bg-warning"><i class="fa-solid fa-handshake"></i></div>
+        <div><h5 class="mb-0">{{ stats.open_deals }}</h5><small>Open Deals</small></div></div></div></div>
+    <div class="col-md-3"><div class="card stat-card text-success"><div class="card-body d-flex gap-3 align-items-center">
+        <div class="stat-icon bg-success"><i class="fa-solid fa-trophy"></i></div>
+        <div><h5 class="mb-0">${{ stats.won_value|floatformat:0 }}</h5><small>Won Value</small></div></div></div></div>
+    <div class="col-md-3"><div class="card stat-card text-secondary"><div class="card-body d-flex gap-3 align-items-center">
+        <div class="stat-icon bg-secondary"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+        <div><h5 class="mb-0">{{ stats.invoices }}</h5><small>Invoices</small></div></div></div></div>
+    <div class="col-md-3"><div class="card stat-card text-success"><div class="card-body d-flex gap-3 align-items-center">
+        <div class="stat-icon bg-success"><i class="fa-solid fa-sack-dollar"></i></div>
+        <div><h5 class="mb-0">${{ stats.payments|floatformat:0 }}</h5><small>Payments Collected</small></div></div></div></div>
+    <div class="col-md-3"><div class="card stat-card text-danger"><div class="card-body d-flex gap-3 align-items-center">
+        <div class="stat-icon bg-danger"><i class="fa-solid fa-headset"></i></div>
+        <div><h5 class="mb-0">{{ stats.open_tickets }}</h5><small>Open Tickets</small></div></div></div></div>
+    <div class="col-md-3"><div class="card stat-card text-dark"><div class="card-body d-flex gap-3 align-items-center">
+        <div class="stat-icon bg-dark"><i class="fa-solid fa-clipboard-list"></i></div>
+        <div><h5 class="mb-0">{{ stats.tasks_pending }}</h5><small>Pending Tasks</small></div></div></div></div>
+</div>
+
+<h6 class="text-muted mt-4 mb-2 text-uppercase small">Available Reports</h6>
+<div class="row g-3">
+    {% include 'reports/_link_card.html' with url='/reports/sales/' icon='fa-file-invoice-dollar' color='primary' name='Sales Report' desc='Invoices in period' %}
+    {% include 'reports/_link_card.html' with url='/reports/customers/' icon='fa-building-user' color='info' name='Customer Report' desc='Directory & invoiced totals' %}
+    {% include 'reports/_link_card.html' with url='/reports/leads/' icon='fa-filter' color='warning' name='Lead Report' desc='Pipeline & sources' %}
+    {% include 'reports/_link_card.html' with url='/reports/revenue/' icon='fa-sack-dollar' color='success' name='Revenue Report' desc='Payments & monthly trend' %}
+    {% include 'reports/_link_card.html' with url='/reports/invoices/' icon='fa-file-lines' color='secondary' name='Invoice Report' desc='Aging & outstanding' %}
+    {% include 'reports/_link_card.html' with url='/reports/payments/' icon='fa-money-bill-transfer' color='success' name='Payment Report' desc='All received payments' %}
+    {% include 'reports/_link_card.html' with url='/reports/products/' icon='fa-box-open' color='dark' name='Product Report' desc='Sales by product' %}
+    {% include 'reports/_link_card.html' with url='/reports/tickets/' icon='fa-headset' color='danger' name='Support Report' desc='Tickets by status' %}
+    {% include 'reports/_link_card.html' with url='/reports/employees/' icon='fa-users' color='primary' name='Employee Performance' desc='Workload per user' %}
+    {% include 'reports/_link_card.html' with url='/reports/tasks/' icon='fa-clipboard-list' color='warning' name='Task Report' desc='Tasks by status' %}
+</div>
+{% endblock %}
+
+{% block scripts %}{% endblock %}

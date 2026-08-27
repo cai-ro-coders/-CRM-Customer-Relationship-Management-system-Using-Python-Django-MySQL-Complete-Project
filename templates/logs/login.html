@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block title %}Login History{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fa-solid fa-right-to-bracket text-primary me-2"></i>Login History</h4>
+        <small class="text-muted">Sessions, devices and IPs</small>
+    </div>
+</div>
+
+<div class="card"><div class="card-body">
+<table id="loginTable" class="table table-hover w-100">
+    <thead><tr><th>ID</th><th>User</th><th>Login Time</th><th>Logout Time</th>
+        <th>IP Address</th><th>Browser</th><th>Operating System</th><th class="no-export">Actions</th></tr></thead>
+</table>
+</div></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(function () {
+    initDataTable('#loginTable', '/login-logs/data/', [
+        { data: 'id' },
+        { data: 'user', render: d => `<span class="badge badge-soft-info">${d}</span>` },
+        { data: 'login_time', className: 'small' },
+        { data: 'logout_time', className: 'small' },
+        { data: 'ip_address', className: 'font-monospace small' },
+        { data: 'browser', render: d => d !== '-' ? `<i class="fa-solid fa-globe me-1 text-muted"></i>${d}` : d },
+        { data: 'operating_system', render: d => d !== '-' ? `<i class="fa-solid fa-desktop me-1 text-muted"></i>${d}` : d },
+        { data: null, className: 'no-export', orderable: false, searchable: false,
+          render: (d, t, r) => `
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteLog(${r.id})"
+                    title="Delete log"><i class="fa-solid fa-trash"></i></button>` }
+    ], { orderCol: 2 });
+});
+
+function deleteLog(id) {
+    confirmDelete(`/login-logs/${id}/delete/`, () => $('#loginTable').DataTable().ajax.reload(null, false));
+}
+</script>
+{% endblock %}

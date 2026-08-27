@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block title %}Task Board{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="fw-bold mb-0"><i class="fa-solid fa-table-columns text-primary me-2"></i>Task Board</h4>
+    <a href="/tasks/" class="btn btn-outline-secondary"><i class="fa-solid fa-list me-1"></i>List View</a>
+</div>
+
+<div class="row g-3" id="taskBoard">
+    {% for col in board %}
+    <div class="col-md-6 col-xl-3">
+        <div class="card h-100 border-top border-3"
+             style="border-top-color:{% if forloop.counter0 == 0 %}#dc3545{% elif forloop.counter0 == 1 %}#fd7e14{% elif forloop.counter0 == 2 %}#198754{% else %}#adb5bd{% endif %}">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-semibold">{{ col.status }}</span>
+                <span class="badge badge-soft-secondary">{{ col.tasks|length }}</span>
+            </div>
+            <div class="card-body p-2" style="min-height:200px;max-height:70vh;overflow-y:auto">
+                {% for t in col.tasks %}
+                <div class="border rounded-3 p-2 mb-2 bg-body task-card">
+                    <div class="d-flex justify-content-between align-items-start gap-1">
+                        <span class="fw-semibold small">{{ t.title }}</span>
+                        <span class="badge badge-soft-{{ t.priority_class }} smaller">{{ t.priority }}</span>
+                    </div>
+                    {% if t.related %}<div class="text-muted smaller mt-1"><i class="fa-solid fa-link me-1"></i>{{ t.related }}</div>{% endif %}
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <small class="{% if t.overdue %}text-danger fw-bold{% else %}text-muted{% endif %}">
+                            <i class="fa-regular fa-calendar me-1"></i>{{ t.due_date|default:"No date" }}</small>
+                        <button class="btn btn-sm btn-outline-success py-0 px-1" title="Mark complete"
+                                onclick="completeTask({{ t.pk }})"><i class="fa-solid fa-check"></i></button>
+                    </div>
+                    <div class="text-muted smaller mt-1">{{ t.assigned_to.get_full_name|default:"Unassigned" }}</div>
+                </div>
+                {% empty %}<p class="text-muted small text-center pt-4">Nothing here</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function completeTask(id) {
+    $.post(`/tasks/${id}/toggle/`).done(() => location.reload()).fail(handleAjaxError);
+}
+</script>
+{% endblock %}

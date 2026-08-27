@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block title %}Lead Statuses{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <a href="/lead-sources/" class="small text-decoration-none"><i class="fa-solid fa-arrow-left me-1"></i>Lead Sources</a>
+        <h4 class="fw-bold mb-0 mt-1"><i class="fa-solid fa-list-check text-primary me-2"></i>Lead Statuses</h4>
+    </div>
+    <button class="btn btn-primary" onclick="openModal()"><i class="fa-solid fa-plus me-1"></i>New Status</button>
+</div>
+
+<div class="card"><div class="card-body">
+<table id="stTable" class="table table-hover w-100" style="width:100%">
+    <thead><tr><th>ID</th><th>Name</th><th>Color</th><th>Order</th><th>Leads</th><th class="no-export">Actions</th></tr></thead>
+</table>
+</div></div>
+
+<div class="modal fade" id="stModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="stForm">
+                <input type="hidden" name="id" id="lst_id">
+                <div class="modal-header"><h5 class="modal-title">Lead Status</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body row g-3">
+                    <div class="col-md-6"><label class="form-label">Name *</label>
+                        <input name="name" class="form-control" required placeholder="e.g. New, Contacted, Qualified"></div>
+                    <div class="col-md-3"><label class="form-label">Color</label>
+                        <input type="color" name="color" value="#0d6efd" class="form-control form-control-color w-100"></div>
+                    <div class="col-md-3"><label class="form-label">Sort Order</label>
+                        <input type="number" name="sort_order" value="0" class="form-control"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary px-4">Save Status</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let stTable;
+$(function () {
+    stTable = initDataTable('#stTable', '/lead-statuses/data/', [
+        { data: 'id' },
+        { data: 'name', className: 'fw-semibold' },
+        { data: 'color', render: d => `<span class="badge px-3 py-2" style="background:${d}22;color:${d};border:1px solid ${d}">${d}</span>` },
+        { data: 'sort_order' },
+        { data: 'usage', render: d => `<span class="badge badge-soft-primary">${d}</span>` },
+        { data: null, className: 'no-export', orderable: false, searchable: false, render: (d, t, r) => `
+            <button class="btn btn-sm btn-outline-warning" onclick='editRow(${JSON.stringify(JSON.stringify(r))})'><i class="fa-solid fa-pen"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteRow(${r.id})"><i class="fa-solid fa-trash"></i></button>` }
+    ], { serverSide: false });
+});
+
+function openModal() {
+    $('#stForm')[0].reset();
+    $('#stForm input[name=color]').val('#0d6efd');
+    $('#stForm input[name=sort_order]').val(0);
+    $('#lst_id').val('');
+    new bootstrap.Modal('#stModal').show();
+}
+
+function editRow(json) {
+    const r = JSON.parse(json);
+    const f = $('#stForm')[0];
+    $('#lst_id').val(r.id);
+    f.name.value = r.name; f.color.value = r.color; f.sort_order.value = r.sort_order;
+    new bootstrap.Modal('#stModal').show();
+}
+
+$('#stForm').on('submit', function (e) {
+    e.preventDefault();
+    $.post('/lead-statuses/save/', $(this).serialize()).done(res => {
+        toast(res.message);
+        bootstrap.Modal.getInstance('#stModal').hide();
+        stTable.ajax.reload(null, false);
+    }).fail(handleAjaxError);
+});
+
+function deleteRow(id) { confirmDelete(`/lead-statuses/${id}/delete/`, () => stTable.ajax.reload(null, false)); }
+</script>
+{% endblock %}

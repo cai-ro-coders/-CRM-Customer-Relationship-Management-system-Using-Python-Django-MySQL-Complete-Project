@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Activity Logs{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fa-solid fa-clock-rotate-left text-primary me-2"></i>Activity Logs</h4>
+        <small class="text-muted">Who did what, when · <a href="/audit-logs/">Audit trail →</a> · <a href="/login-logs/">Login history →</a></small>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <select id="fModule" class="form-select form-select-sm w-auto"><option value="">All Modules</option></select>
+    </div>
+    <div class="card-body">
+<table id="actTable" class="table table-hover w-100">
+    <thead><tr><th>ID</th><th>When</th><th>User</th><th>Module</th><th>Action</th>
+        <th>Record</th><th>IP Address</th></tr></thead>
+</table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let actTable;
+$(function () {
+    const $sel = $('#fModule');
+    ['customers','leads','deals','tasks','meetings','products','quotes','invoices','payments',
+     'tickets','email_templates','email_logs','users','roles','settings'].forEach(m =>
+        $sel.append(`<option value="${m}">${m.replace(/_/g,' ')}</option>`));
+
+    actTable = initDataTable('#actTable', '/activity-logs/data/', [
+        { data: 'id' },
+        { data: 'created_at', className: 'small' },
+        { data: 'user', render: d => `<span class="badge badge-soft-info">${d}</span>` },
+        { data: 'module' },
+        { data: 'action', className: 'fw-semibold' },
+        { data: 'record_id' },
+        { data: 'ip_address', className: 'font-monospace small' }
+    ], {
+        filters: d => { d.module = $('#fModule').val() || ''; }
+    });
+    $sel.on('change', () => actTable.ajax.reload());
+});
+</script>
+{% endblock %}

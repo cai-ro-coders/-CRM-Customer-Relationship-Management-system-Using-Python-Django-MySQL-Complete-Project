@@ -1,0 +1,116 @@
+{% load static %}<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{{ invoice.invoice_number }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background:#fff; font-size:14px; }
+        .doc-header { border-bottom: 3px solid #0d6efd; padding-bottom: 16px; margin-bottom: 24px; }
+        .logo { max-height: 60px; max-width: 200px; object-fit: contain; }
+        .stamp-paid {
+            position:absolute; top:120px; right:40px;
+            border:4px solid #198754; color:#198754; font-weight:800;
+            font-size:2rem; padding:6px 22px; transform: rotate(-18deg);
+            opacity:.75; border-radius:8px; letter-spacing:2px;
+        }
+        @media print {
+            .no-print { display: none !important; }
+            body { padding: 0 !important; }
+            .card { border: none !important; }
+            .stamp-paid { opacity: .55; }
+        }
+    </style>
+</head>
+<body class="p-4 position-relative">
+{% if invoice.status == 'Paid' %}<div class="stamp-paid">PAID</div>{% endif %}
+<div class="container">
+    <div class="text-end mb-3 no-print">
+        <button class="btn btn-primary" onclick="window.print()"><i class="fa-solid fa-print me-1"></i>Print</button>
+        <a href="/invoices/{{ invoice.pk }}/" class="btn btn-secondary">Back</a>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-start doc-header">
+        <div>
+            <h2 class="fw-bold text-primary mb-0">INVOICE</h2>
+            <div class="fs-4 fw-semibold">{{ invoice.invoice_number }}</div>
+        </div>
+        <div class="text-end">
+            {% if setting and setting.company_logo %}
+                <img src="{{ setting.company_logo.url }}" alt="logo" class="logo mb-2">
+            {% endif %}
+            <strong>{% if setting %}{{ setting.company_name|default:'CRM Inc.' }}{% else %}CRM Inc.{% endif %}</strong>
+            <div class="small text-muted">
+                {{ setting.company_email|default:'' }}<br>{{ setting.company_phone|default:'' }}
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-6">
+            <h6 class="text-uppercase text-muted small">Bill To</h6>
+            <strong>{{ invoice.customer.company_name }}</strong><br>
+            {{ invoice.customer.email|default:'' }}<br>{{ invoice.customer.phone|default:'' }}
+        </div>
+        <div class="col-6 text-end">
+            <table class="table table-sm small w-auto ms-auto">
+                <tr><td class="text-muted">Invoice Date:</td><td>{{ invoice.invoice_date }}</td></tr>
+                <tr><td class="text-muted">Due Date:</td><td>{{ invoice.due_date|default:'—' }}</td></tr>
+                {% if invoice.quote %}
+                <tr><td class="text-muted">Quote Ref:</td><td>{{ invoice.quote.quote_number }}</td></tr>
+                {% endif %}
+                <tr><td class="text-muted">Status:</td><td>{{ invoice.status }}</td></tr>
+            </table>
+        </div>
+    </div>
+
+    <table class="table table-bordered table-sm">
+        <thead class="table-light"><tr><th>#</th><th>Product / Service</th><th>Qty</th><th>Price</th>
+            <th>Tax %</th><th>Disc %</th><th class="text-end">Amount</th></tr></thead>
+        <tbody>
+            {% for i in invoice.items.all %}
+            <tr><td>{{ forloop.counter }}</td><td>{{ i.product.product_name|default:'Item' }}</td>
+                <td>{{ i.quantity }}</td><td>${{ i.price }}</td><td>{{ i.tax }}%</td><td>{{ i.discount }}%</td>
+                <td class="text-end">${{ i.total }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="row justify-content-end mt-3">
+        <div class="col-5">
+            <table class="table table-sm">
+                <tr><td>Subtotal</td><td class="text-end">${{ invoice.subtotal }}</td></tr>
+                <tr><td>Tax</td><td class="text-end">${{ invoice.tax }}</td></tr>
+                <tr><td>Discount</td><td class="text-end">-${{ invoice.discount }}</td></tr>
+                <tr class="fw-bold"><td>Total (USD)</td><td class="text-end">${{ invoice.total }}</td></tr>
+                <tr class="text-success"><td>Paid</td><td class="text-end">-${{ invoice.paid_amount }}</td></tr>
+                <tr class="table-light fw-bold fs-5">
+                    <td>Balance Due</td><td class="text-end">${{ invoice.balance }}</td></tr>
+            </table>
+        </div>
+    </div>
+
+    {% if invoice.payments.all %}
+    <h6 class="mt-4 text-muted text-uppercase small">Payment History</h6>
+    <table class="table table-sm table-bordered small w-75">
+        <thead class="table-light"><tr><th>Date</th><th>Method</th><th>Reference</th><th class="text-end">Amount</th></tr></thead>
+        <tbody>
+        {% for p in invoice.payments.all %}
+            <tr><td>{{ p.payment_date }}</td><td>{{ p.payment_method }}</td>
+                <td>{{ p.transaction_reference }}</td><td class="text-end">${{ p.amount }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if invoice.notes %}
+    <div class="mt-4 small">
+        <strong>Notes:</strong>
+        <p class="text-muted">{{ invoice.notes }}</p>
+    </div>
+    {% endif %}
+
+    <p class="text-center text-muted smaller mt-4">Thank you for your business!</p>
+</div>
+</body>
+</html>

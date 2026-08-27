@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% block title %}System Settings{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fa-solid fa-gear text-primary me-2"></i>System Settings</h4>
+        <small class="text-muted">Company profile, localization and SMTP ·
+            <a href="/settings/backup/">Backups →</a> · <a href="/settings/system-info/">System info →</a></small>
+    </div>
+</div>
+
+<form id="settingsForm" enctype="multipart/form-data" onsubmit="saveSettings(event)">
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <div class="card mb-3"><div class="card-header fw-semibold"><i class="fa-solid fa-building me-2"></i>Company Profile</div>
+                <div class="card-body row g-3">
+                    <div class="col-md-6"><label class="form-label">Company Name</label>
+                        <input name="company_name" value="{{ setting.company_name|default:'' }}" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Company Email</label>
+                        <input name="company_email" type="email" value="{{ setting.company_email|default:'' }}" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Phone</label>
+                        <input name="company_phone" value="{{ setting.company_phone|default:'' }}" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Logo</label>
+                        <div class="d-flex gap-2 align-items-center">
+                            {% if setting.logo %}<img src="{{ setting.logo.url }}" style="height:38px" alt="" class="border rounded p-1">{% endif %}
+                            <input type="file" name="logo" accept=".jpg,.jpeg,.png,.svg,.webp" class="form-control">
+                        </div></div>
+                    <div class="col-12"><label class="form-label">Address</label>
+                        <input name="address" value="{{ setting.address|default:'' }}" class="form-control"></div>
+                    <div class="col-md-4"><label class="form-label">City</label>
+                        <input name="city" value="{{ setting.city|default:'' }}" class="form-control"></div>
+                    <div class="col-md-4"><label class="form-label">State / Province</label>
+                        <input name="state" value="{{ setting.state|default:'' }}" class="form-control"></div>
+                    <div class="col-md-4"><label class="form-label">Postal Code</label>
+                        <input name="postal_code" value="{{ setting.postal_code|default:'' }}" class="form-control"></div>
+                    <div class="col-md-4"><label class="form-label">Country</label>
+                        <input name="country" value="{{ setting.country|default:'' }}" class="form-control"></div>
+                    <div class="col-md-4"><label class="form-label">Currency</label>
+                        <select name="currency" class="form-select">
+                            <option>USD</option><option>EUR</option><option>GBP</option><option>AED</option>
+                            <option>SAR</option><option>CAD</option><option>AUD</option>
+                        </select></div>
+                    <div class="col-md-4"><label class="form-label">Timezone</label>
+                        <input name="timezone" value="{{ setting.timezone|default:'UTC' }}" class="form-control"></div>
+                    <div class="col-md-4"><label class="form-label">Language</label>
+                        <select name="language" class="form-select">
+                            <option>English</option><option>Arabic</option><option>Spanish</option><option>French</option>
+                        </select></div>
+                </div></div>
+
+            <div class="card"><div class="card-header fw-semibold"><i class="fa-solid fa-envelope me-2"></i>SMTP (Outgoing Email)</div>
+                <div class="card-body row g-3">
+                    <div class="col-md-8"><label class="form-label">SMTP Host</label>
+                        <input name="smtp_host" value="{{ setting.smtp_host|default:'' }}" class="form-control" placeholder="smtp.example.com"></div>
+                    <div class="col-md-4"><label class="form-label">Port</label>
+                        <input name="smtp_port" value="{{ setting.smtp_port|default:'' }}" class="form-control" placeholder="587"></div>
+                    <div class="col-md-4"><label class="form-label">Username</label>
+                        <input name="smtp_username" value="{{ setting.smtp_username|default:'' }}" class="form-control" autocomplete="off"></div>
+                    <div class="col-md-4"><label class="form-label">Password</label>
+                        <input type="password" name="smtp_password" class="form-control" placeholder="{% if setting.smtp_password %}•••••••• (unchanged){% else %}Not set{% endif %}" autocomplete="new-password"></div>
+                    <div class="col-md-4"><label class="form-label">Encryption</label>
+                        <select name="smtp_encryption" class="form-select">
+                            <option value="TLS" {% if setting.smtp_encryption == 'TLS' %}selected{% endif %}>TLS</option>
+                            <option value="SSL" {% if setting.smtp_encryption == 'SSL' %}selected{% endif %}>SSL</option>
+                            <option value="" {% if not setting.smtp_encryption %}selected{% endif %}>None</option>
+                        </select></div>
+                    <div class="col-12 small text-muted"><i class="fa-solid fa-shield-halved me-1"></i>
+                        Credentials are stored server-side; the CRM currently uses the console email backend for demos.</div>
+                </div></div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card mb-3"><div class="card-header fw-semibold">Quick Links</div><div class="list-group list-group-flush">
+                <a href="/settings/backup/" class="list-group-item list-group-item-action"><i class="fa-solid fa-database me-2 text-primary"></i>Backup &amp; Restore</a>
+                <a href="/settings/system-info/" class="list-group-item list-group-item-action"><i class="fa-solid fa-circle-info me-2 text-primary"></i>System Information</a>
+                <a href="/activity-logs/" class="list-group-item list-group-item-action"><i class="fa-solid fa-clock-rotate-left me-2 text-primary"></i>Activity Logs</a>
+                <a href="/audit-logs/" class="list-group-item list-group-item-action"><i class="fa-solid fa-user-lock me-2 text-primary"></i>Audit Trail</a>
+            </div></div>
+            <div class="card position-sticky" style="top:80px">
+                <div class="card-body d-grid gap-2">
+                    <button class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save Settings</button>
+                    <span class="small text-muted text-center">Changes are audit-logged.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function saveSettings(e) {
+    e.preventDefault();
+    $.ajax({
+        url: '/settings/save/', method: 'POST',
+        data: new FormData($('#settingsForm')[0]), processData: false, contentType: false
+    }).done(res => toast(res.message)).fail(handleAjaxError);
+}
+$(function () {
+    const cur = '{{ setting.currency|default:"USD"|escapejs }}';
+    if (cur) $('select[name=currency]').val(cur);
+});
+</script>
+{% endblock %}

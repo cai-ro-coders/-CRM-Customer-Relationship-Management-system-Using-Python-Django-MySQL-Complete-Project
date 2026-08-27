@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+{% block title %}{{ invoice.invoice_number }}{% endblock %}
+{% block content %}
+<div class="mb-3 d-flex justify-content-between flex-wrap gap-2">
+    <div>
+        <a href="/invoices/" class="small text-decoration-none"><i class="fa-solid fa-arrow-left me-1"></i>Back to Invoices</a>
+        <h4 class="fw-bold mb-0 mt-1">{{ invoice.invoice_number }}
+            {% if invoice.status == 'Paid' %}<span class="badge badge-soft-success">Paid</span>
+            {% elif invoice.status == 'Overdue' %}<span class="badge badge-soft-danger">Overdue</span>
+            {% elif invoice.status == 'Partial' %}<span class="badge badge-soft-info">Partial</span>
+            {% elif invoice.status == 'Sent' %}<span class="badge badge-soft-primary">Sent</span>
+            {% elif invoice.status == 'Cancelled' %}<span class="badge badge-soft-secondary">Cancelled</span>
+            {% else %}<span class="badge badge-soft-secondary">Draft</span>{% endif %}
+        </h4>
+        <small class="text-muted">for {{ invoice.customer.company_name }}</small>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="/invoices/{{ invoice.pk }}/pdf/" target="_blank" class="btn btn-outline-secondary">
+            <i class="fa-solid fa-print me-1"></i>Print / PDF</a>
+        {% if invoice.balance > 0 and invoice.status != 'Cancelled' %}
+        <button class="btn btn-success" onclick="openPaymentModal()">
+            <i class="fa-solid fa-money-bill-transfer me-1"></i>Record Payment</button>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card"><div class="card-header">Line Items</div><div class="card-body p-0">
+            <table class="table mb-0">
+                <thead><tr><th>#</th><th>Product</th><th>Qty</th><th>Price</th><th>Tax %</th><th>Disc %</th><th class="text-end">Total</th></tr></thead>
+                <tbody>
+                    {% for i in invoice.items.all %}
+                    <tr><td>{{ forloop.counter }}</td>
+                        <td>{{ i.product.product_name|default:"—" }}</td>
+                        <td>{{ i.quantity }}</td><td>${{ i.price }}</td>
+                        <td>{{ i.tax }}%</td><td>{{ i.discount }}%</td>
+                        <td class="text-end fw-semibold">${{ i.total }}</td></tr>
+                    {% empty %}<tr><td colspan="7" class="text-muted text-center py-3">No items.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div></div>
+
+        {% if invoice.payments.all %}
+        <div class="card mt-3"><div class="card-header d-flex justify-content-between align-items-center">
+            Payments Received
+        </div><div class="card-body p-0">
+            <table class="table mb-0">
+                <thead><tr><th>Date</th><th>Method</th><th>Reference</th><th class="text-end">Amount</th><th class="no-export"></th></tr></thead>
+                <tbody>
+                    {% for p in invoice.payments.all %}
+                    <tr><td>{{ p.payment_date }}</td><td>{{ p.payment_method }}</td>
+                        <td>{{ p.transaction_reference|default:'—' }}</td>
+                        <td class="text-end fw-semibold text-success">${{ p.amount }}</td>
+                        <td class="text-end no-export"><button class="btn btn-sm btn-link text-danger"
+                            onclick="deletePayment({{ p.pk }})"><i class="fa-solid fa-trash"></i></button></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div></div>
+        {% endif %}
+
+        <div class="card mt-3"><div class="card-header">Notes</div><div class="card-body small">
+            {{ invoice.notes|default:'—' }}
+        </div></div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card mb-3"><div class="card-header">Summary</div><div class="card-body">
+            <table class="table table-sm small">
+                <tr><td>Invoice Date</td><td>{{ invoice.invoice_date }}</td></tr>
+                <tr><td>Due Date</td><td>{{ invoice.due_date|default:'—' }}</td></tr>
+                {% if invoice.quote %}
+                <tr><td>From Quote</td><td><a href="/quotes/{{ invoice.quote_id }}/">{{ invoice.quote.quote_number }}</a></td></tr>
+                {% endif %}
+                <tr><td>Created By</td><td>{{ invoice.created_by.get_full_name|default:'—' }}</td></tr>
+                <tr><td>Subtotal</td><td class="text-end">${{ invoice.subtotal }}</td></tr>
+                <tr><td>Tax</td><td class="text-end">${{ invoice.tax }}</td></tr>
+                <tr><td>Discount</td><td class="text-end">-${{ invoice.discount }}</td></tr>
+                <tr><td>Total</td><td class="text-end fw-bold">${{ invoice.total }}</td></tr>
+                <tr><td>Paid</td><td class="text-end text-success fw-bold">${{ invoice.paid_amount }}</td></tr>
+                <tr class="{% if invoice.balance > 0 %}table-warning{% else %}table-light{% endif %}">
+                    <td><strong>Balance</strong></td>
+                    <td class="text-end fs-5 fw-bold {% if invoice.balance > 0 %}text-danger{% else %}text-success{% endif %}">
+                        ${{ invoice.balance }}</td></tr>
+            </table>
+            {% if invoice.due_date and invoice.balance > 0 %}
+            <div class="progress mt-1" style="height:6px">
+                <div class="progress-bar bg-success" style="width: {% widthratio invoice.paid_amount invoice.total 100 %}%"></div>
+            </div>
+            <small class="text-muted">{% widthratio invoice.paid_amount invoice.total 100 %}% collected</small>
+            {% endif %}
+        </div></div>
+        <div class="card"><div class="card-header">Customer</div><div class="card-body small">
+            <a href="/customers/{{ invoice.customer_id }}/" class="fw-semibold text-decoration-none">
+                {{ invoice.customer.company_name }}</a>
+            <div class="text-muted">{{ invoice.customer.email|default:'' }}</div>
+            <div class="text-muted">{{ invoice.customer.phone|default:'' }}</div>
+        </div></div>
+    </div>
+</div>
+
+<!-- Payment modal -->
+<div class="modal fade" id="paymentModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="paymentForm" onsubmit="savePayment(event)">
+                <div class="modal-header"><h5 class="modal-title">Record Payment — {{ invoice.invoice_number }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
+                <div class="modal-body row g-3">
+                    <div class="col-md-6"><label class="form-label">Amount ($) *</label>
+                        <input name="amount" id="payAmount" type="number" step="0.01" min="0.01"
+                               max="{{ invoice.balance }}" class="form-control"
+                               value="{{ invoice.balance }}" required></div>
+                    <div class="col-md-6"><label class="form-label">Payment Date</label>
+                        <input name="payment_date" type="date" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Method</label>
+                        <select name="payment_method" class="form-select">
+                            <option>Cash</option><option selected>Bank Transfer</option>
+                            <option>Credit Card</option><option>Check</option><option>PayPal</option><option>Other</option>
+                        </select></div>
+                    <div class="col-md-6"><label class="form-label">Reference #</label>
+                        <input name="transaction_reference" class="form-control" placeholder="TXN / Check #"></div>
+                    <div class="col-12"><label class="form-label">Notes</label>
+                        <textarea name="notes" rows="2" class="form-control"></textarea></div>
+                    <div class="col-12 small text-muted">Current balance: <strong>${{ invoice.balance }}</strong></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-success px-4"><i class="fa-solid fa-check me-1"></i>Save Payment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openPaymentModal() { new bootstrap.Modal('#paymentModal').show(); }
+
+function savePayment(e) {
+    e.preventDefault();
+    $.post('/payments/save/', $('#paymentForm').serialize()).done(res => {
+        toast(res.message);
+        bootstrap.Modal.getInstance('#paymentModal').hide();
+        setTimeout(() => location.reload(), 500);
+    }).fail(handleAjaxError);
+}
+
+function deletePayment(id) {
+    confirmDelete(`/payments/${id}/delete/`, () => location.reload());
+}
+</script>
+{% endblock %}

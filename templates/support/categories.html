@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}Ticket Categories{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <a href="/tickets/" class="small text-decoration-none"><i class="fa-solid fa-arrow-left me-1"></i>Back to Tickets</a>
+        <h4 class="fw-bold mb-0 mt-1"><i class="fa-solid fa-tags text-primary me-2"></i>Ticket Categories</h4>
+    </div>
+    <button class="btn btn-primary" onclick="openCatModal()"><i class="fa-solid fa-plus me-1"></i>New Category</button>
+</div>
+
+<div class="card"><div class="card-body">
+<table id="catTable" class="table table-hover w-100" style="width:100%">
+    <thead><tr><th>ID</th><th>Name</th><th>Tickets</th><th class="no-export">Actions</th></tr></thead>
+</table>
+</div></div>
+
+<div class="modal fade" id="catModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="catForm">
+                <input type="hidden" name="id" id="sc_id">
+                <div class="modal-header"><h5 class="modal-title">Category</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <label class="form-label">Name *</label>
+                    <input name="name" class="form-control" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary px-4">Save Category</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let scTable;
+$(function () {
+    scTable = initDataTable('#catTable', '/ticket-categories/data/', [
+        { data: 'id' },
+        { data: 'name', className: 'fw-semibold' },
+        { data: 'ticket_count', render: d => `<span class="badge badge-soft-primary">${d}</span>` },
+        { data: null, className: 'no-export', orderable: false, searchable: false, render: (d, t, r) => `
+            <button class="btn btn-sm btn-outline-warning" onclick='editCat(${JSON.stringify(JSON.stringify(r))})'><i class="fa-solid fa-pen"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteCat(${r.id})"><i class="fa-solid fa-trash"></i></button>` }
+    ], { serverSide: false });
+});
+
+function openCatModal() {
+    $('#catForm')[0].reset();
+    $('#sc_id').val('');
+    new bootstrap.Modal('#catModal').show();
+}
+
+function editCat(json) {
+    const r = JSON.parse(json);
+    $('#sc_id').val(r.id);
+    $('#catForm input[name=name]').val(r.name);
+    new bootstrap.Modal('#catModal').show();
+}
+
+$('#catForm').on('submit', function (e) {
+    e.preventDefault();
+    $.post('/ticket-categories/save/', $(this).serialize()).done(res => {
+        toast(res.message);
+        bootstrap.Modal.getInstance('#catModal').hide();
+        scTable.ajax.reload(null, false);
+    }).fail(handleAjaxError);
+});
+
+function deleteCat(id) { confirmDelete(`/ticket-categories/${id}/delete/`, () => scTable.ajax.reload(null, false)); }
+</script>
+{% endblock %}

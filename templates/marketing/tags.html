@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}Customer Tags{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fa-solid fa-tags text-primary me-2"></i>Customer Tags</h4>
+        <small class="text-muted">Segment customers with colored labels</small>
+    </div>
+    <button class="btn btn-primary" onclick="openModal()"><i class="fa-solid fa-plus me-1"></i>New Tag</button>
+</div>
+
+<div class="card"><div class="card-body">
+<table id="tagTable" class="table table-hover w-100" style="width:100%">
+    <thead><tr><th>ID</th><th>Tag</th><th>Color</th><th>Customers</th><th class="no-export">Actions</th></tr></thead>
+</table>
+</div></div>
+
+<div class="modal fade" id="tagModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="tagForm">
+                <input type="hidden" name="id" id="ct_id">
+                <div class="modal-header"><h5 class="modal-title">Customer Tag</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body row g-3">
+                    <div class="col-md-8"><label class="form-label">Name *</label>
+                        <input name="name" class="form-control" required placeholder="e.g. VIP, At Risk, Enterprise"></div>
+                    <div class="col-md-4"><label class="form-label">Color</label>
+                        <input type="color" name="color" value="#0d6efd" class="form-control form-control-color w-100"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary px-4">Save Tag</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let tagTable;
+$(function () {
+    tagTable = initDataTable('#tagTable', '/tags/data/', [
+        { data: 'id' },
+        { data: null, render: r => `<span class="badge px-3 py-2 fs-6 fw-normal" style="background:${r.color}22;color:${r.color};border:1px solid ${r.color}55">${r.name}</span>` },
+        { data: 'color', render: d => `<code>${d}</code>` },
+        { data: 'usage', render: d => `<span class="badge badge-soft-primary">${d}</span>` },
+        { data: null, className: 'no-export', orderable: false, searchable: false, render: (d, t, r) => `
+            <button class="btn btn-sm btn-outline-warning" onclick='editRow(${JSON.stringify(JSON.stringify(r))})'><i class="fa-solid fa-pen"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteRow(${r.id})"><i class="fa-solid fa-trash"></i></button>` }
+    ], { serverSide: false });
+});
+
+function openModal() {
+    $('#tagForm')[0].reset();
+    $('#tagForm input[name=color]').val('#0d6efd');
+    $('#ct_id').val('');
+    new bootstrap.Modal('#tagModal').show();
+}
+
+function editRow(json) {
+    const r = JSON.parse(json);
+    const f = $('#tagForm')[0];
+    $('#ct_id').val(r.id);
+    f.name.value = r.name; f.color.value = r.color;
+    new bootstrap.Modal('#tagModal').show();
+}
+
+$('#tagForm').on('submit', function (e) {
+    e.preventDefault();
+    $.post('/tags/save/', $(this).serialize()).done(res => {
+        toast(res.message);
+        bootstrap.Modal.getInstance('#tagModal').hide();
+        tagTable.ajax.reload(null, false);
+    }).fail(handleAjaxError);
+});
+
+function deleteRow(id) { confirmDelete(`/tags/${id}/delete/`, () => tagTable.ajax.reload(null, false)); }
+</script>
+{% endblock %}

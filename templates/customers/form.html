@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+{% block title %}{% if customer %}Edit {{ customer.company_name }}{% else %}New Customer{% endif %}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-0">
+            <i class="fa-solid fa-building-user text-primary me-2"></i>
+            {% if customer %}Edit Customer{% else %}New Customer{% endif %}
+        </h4>
+        <small class="text-muted">
+            {% if customer %}Update details for {{ customer.customer_code }}{% else %}Add a new customer account{% endif %}
+        </small>
+    </div>
+    <a href="/customers/" class="btn btn-outline-secondary"><i class="fa-solid fa-arrow-left me-1"></i>Back to Customers</a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form id="customerForm" enctype="multipart/form-data" novalidate>
+            <input type="hidden" name="id" id="c_id" value="{{ customer.id|default:'' }}">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Company Name *</label>
+                    <input name="company_name" class="form-control" value="{{ customer.company_name|default:'' }}" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Type</label>
+                    <select name="customer_type" class="form-select">
+                        <option {% if customer.customer_type == 'Business' %}selected{% endif %}>Business</option>
+                        <option {% if customer.customer_type == 'Individual' %}selected{% endif %}>Individual</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-select">
+                        <option {% if customer.status == 'Active' %}selected{% endif %}>Active</option>
+                        <option {% if customer.status == 'Inactive' %}selected{% endif %}>Inactive</option>
+                        <option {% if customer.status == 'Prospect' %}selected{% endif %}>Prospect</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">First Name *</label>
+                    <input name="first_name" class="form-control" value="{{ customer.first_name|default:'' }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Last Name *</label>
+                    <input name="last_name" class="form-control" value="{{ customer.last_name|default:'' }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Email *</label>
+                    <input type="email" name="email" class="form-control" value="{{ customer.email|default:'' }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Phone</label>
+                    <input name="phone" class="form-control" value="{{ customer.phone|default:'' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Mobile</label>
+                    <input name="mobile" class="form-control" value="{{ customer.mobile|default:'' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Website</label>
+                    <input name="website" class="form-control" placeholder="https://..." value="{{ customer.website|default:'' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Industry</label>
+                    <input name="industry" class="form-control" value="{{ customer.industry|default:'' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Tax Number</label>
+                    <input name="tax_number" class="form-control" value="{{ customer.tax_number|default:'' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Billing Address</label>
+                    <input name="billing_address" class="form-control" value="{{ customer.billing_address|default:'' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Shipping Address</label>
+                    <input name="shipping_address" class="form-control" value="{{ customer.shipping_address|default:'' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">City</label>
+                    <input name="city" class="form-control" value="{{ customer.city|default:'' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">State</label>
+                    <input name="state" class="form-control" value="{{ customer.state|default:'' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Country</label>
+                    <input name="country" class="form-control" value="{{ customer.country|default:'' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Postal Code</label>
+                    <input name="postal_code" class="form-control" value="{{ customer.postal_code|default:'' }}">
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">Assigned To</label>
+                    <select name="assigned_to" id="assignedSelect" class="form-select">
+                        <option value="">-- Unassigned --</option>
+                        {% for u in users %}
+                        <option value="{{ u.id }}" {% if customer.assigned_to_id == u.id %}selected{% endif %}>{{ u.full_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Profile Image</label>
+                    <input type="file" name="image" accept="image/*" class="form-control">
+                    {% if customer.image %}
+                    <small class="text-muted d-block mt-1">Current: <img src="{{ customer.image.url }}" alt="" class="avatar-sm rounded"></small>
+                    {% endif %}
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Notes</label>
+                    <textarea name="notes" rows="2" class="form-control">{{ customer.notes|default:'' }}</textarea>
+                </div>
+                {% if tags %}
+                <div class="col-12">
+                    <label class="form-label d-block mb-1">Tags</label>
+                    {% for t in tags %}
+                    <span class="badge bg-light text-dark border me-1 mb-1">
+                        <input type="checkbox" name="tags[]" value="{{ t.id }}" class="form-check-input me-1"
+                               {% if t.id in customer_tags %}checked{% endif %}
+                               style="--bs-form-check-bg-white:auto">
+                        <span style="color:{{ t.color }};font-weight:700;">●</span> {{ t.name }}
+                    </span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            <div class="d-flex justify-content-end gap-2 mt-4">
+                <a href="/customers/" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary px-4"><i class="fa-solid fa-floppy-disk me-1"></i>Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const customerId = $('#c_id').val();
+
+$('#customerForm').on('submit', function (e) {
+    e.preventDefault();
+    $.ajax({
+        url: '/customers/save/', type: 'POST',
+        data: new FormData(this), contentType: false, processData: false
+    }).done(function (res) {
+        toast(res.message);
+        window.location.href = customerId ? '/customers/' + customerId + '/'
+                                          : '/customers/' + res.customer.id + '/';
+    }).fail(handleAjaxError);
+});
+</script>
+{% endblock %}

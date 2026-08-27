@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}Customers{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fa-solid fa-building-user text-primary me-2"></i>Customers</h4>
+        <small class="text-muted">Manage all your customer accounts</small>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="/customers/trash/" class="btn btn-outline-secondary"><i class="fa-solid fa-trash-can me-1"></i>Trash</a>
+        <a href="/customers/export/?format=csv" class="btn btn-outline-success"><i class="fa-solid fa-file-csv me-1"></i>CSV</a>
+        <a href="/customers/export/?format=excel" class="btn btn-outline-success"><i class="fa-solid fa-file-excel me-1"></i>Excel</a>
+        <a href="/customers/new/" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>New Customer</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table id="customersTable" class="table table-hover w-100">
+            <thead>
+            <tr>
+                <th>ID</th><th>Company</th><th>Contact</th><th>Email</th><th>Phone</th>
+                <th>City</th><th>Type</th><th>Tags</th><th>Status</th><th>Assigned</th>
+                <th class="no-export">Actions</th>
+            </tr>
+            </thead>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let table;
+
+$(function () {
+    table = initDataTable('#customersTable', '/customers/data/', [
+        { data: 'customer_code' },
+        { data: 'company_name', render: (d, t, r) =>
+            `<a href="/customers/${r.id}/" class="text-decoration-none fw-semibold">${d}</a>` },
+        { data: 'name' },
+        { data: 'email' },
+        { data: 'phone' },
+        { data: 'city' },
+        { data: 'customer_type' },
+        { data: 'tags', orderable: false },
+        { data: 'status', render: d => `<span class="badge badge-soft-${d === 'Active' ? 'success' : d === 'Prospect' ? 'info' : 'secondary'}">${d}</span>` },
+        { data: 'assigned_to' },
+        { data: null, className: 'no-export', orderable: false, searchable: false,
+          render: (d, t, r) => `
+            <a href="/customers/${r.id}/" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-eye"></i></a>
+            <a href="/customers/${r.id}/edit/" class="btn btn-sm btn-outline-warning"><i class="fa-solid fa-pen"></i></a>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteCustomer(${r.id})"><i class="fa-solid fa-trash"></i></button>` }
+    ], {
+        filters: d => {
+            if ($('#filterStatus').length) d.status = $('#filterStatus').val();
+        }
+    });
+});
+
+function deleteCustomer(id) {
+    confirmDelete(`/customers/${id}/delete/`, () => table.ajax.reload(null, false));
+}
+</script>
+{% endblock %}

@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% block title %}Bulk Email{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fa-solid fa-bullhorn text-primary me-2"></i>Bulk Email Campaign</h4>
+        <small class="text-muted">Send templated emails to selected customers</small>
+    </div>
+    <a href="/email/logs/" class="btn btn-outline-secondary"><i class="fa-solid fa-list-check me-1"></i>Delivery Logs</a>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">1 · Choose Recipients
+                <span class="badge badge-soft-primary ms-1" id="selCount">0</span></div>
+            <div class="card-body p-0">
+                <div class="p-2 border-bottom d-flex gap-2 align-items-center">
+                    <input type="text" id="custFilter" class="form-control form-control-sm"
+                           placeholder="Filter customers..." oninput="filterCust()">
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="toggleAll(true)">Select all</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll(false)">Clear</button>
+                </div>
+                <div style="max-height:420px;overflow-y:auto">
+                    {% for c in customers %}
+                    <label class="d-flex align-items-center gap-2 px-3 py-2 border-bottom cust-row" data-name="{{ c.company_name|lower }}">
+                        <input type="checkbox" class="form-check-input m-0 cust-check" name="customer_ids" value="{{ c.id }}">
+                        <span class="small flex-grow-1">{{ c.company_name }}</span>
+                        <small class="text-muted">{{ c.email }}</small>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">2 · Compose</div>
+            <div class="card-body">
+                <form id="bulkForm">
+                    <label class="form-label small">Template (optional)</label>
+                    <select name="template_id" id="tplSelect" class="form-select mb-3" onchange="loadTemplate()">
+                        <option value="">-- Write custom message --</option>
+                        {% for t in templates %}<option value="{{ t.id }}" data-subject="{{ t.subject }}"
+                            {% if t.id|stringformat:"s" == request.GET.template %}selected{% endif %}>{{ t.name }}</option>{% endfor %}
+                    </select>
+                    <label class="form-label small">Subject</label>
+                    <input name="subject" id="bulkSubject" class="form-control mb-3" placeholder="Overridden by template subject if empty">
+                    <label class="form-label small">Body</label>
+                    <textarea name="body" id="bulkBody" rows="9" class="form-control font-monospace"
+                              placeholder="Dear {{ '{customer_name}' }}, ...&#10;&#10;Best regards,&#10;{{ '{sender_name}' }}"></textarea>
+                    <div class="small text-muted mt-2">
+                        Placeholders: <code>{{ '{customer_name}' }}</code>, <code>{{ '{contact_name}' }}</code>,
+                        <code>{{ '{sender_name}' }}</code> — replaced per recipient.
+                    </div>
+                    <hr>
+                    <button class="btn btn-primary w-100" onclick="sendBulk(event)">
+                        <i class="fa-solid fa-paper-plane me-1"></i>Send to <span id="sendCount" class="fw-bold">0</span> customer(s)
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateCount() {
+    const n = $('.cust-check:checked').length;
+    $('#selCount').text(n);
+    $('#sendCount').text(n);
+}
+
+$(function () { updateCount(); });
+
+function filterCust() {
+    const q = $('#custFilter').val().toLowerCase();
+    $('.cust-row').each(function () {
+        $(this).toggle($(this).data('name').includes(q));
+    });
+}
+
+function toggleAll(on) {
+    $('.cust-row:visible .cust-check').prop('checked', on).trigger('change');
+}
+
+$('.cust-check').on('change', updateCount);
+
+function loadTemplate() {
+    const opt = $('#tplSelect').find(':selected');
+    if (!opt.val()) return;
+    $.get(`/email/templates/${opt.val()}/get/`).done(res => {
+        if (!$('#bulkSubject').val().trim()) $('#bulkSubject').val(res.template.subject);
+        $('#bulkBody').val(res.template.body || '');
+    });
+}
+// pre-select template passed via ?template=
+$(function () {
+    if ($('#tplSelect').val()) loadTemplate();
+});
+
+function sendBulk(e) {
+    e.preventDefault();
+    const ids = $('.cust-check:checked').map((_, el) => el.value).get();
+    if (!ids.length) { toast('Select at least one customer.', 'warning'); return; }
+    Swal.fire({ title: `Send ${ids.length} email(s)?`, icon: 'question',
+                showCancelButton: true, confirmButtonText: 'Send now' })
+        .then(r => {
+            if (!r.isConfirmed) return;
+            const fd = new FormData($('#bulkForm')[0]);
+            ids.forEach(i => fd.append('customer_ids[]', i));
+            $.ajax({
+                url: '/email/bulk/send/', method: 'POST',
+                data: fd, processData: false, contentType: false
+            }).done(res => {
+                Swal.fire('Sent!', res.message, 'success')
+                    .then(() => location.href = '/email/logs/');
+            }).fail(handleAjaxError);
+        });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% block title %}Products{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fa-solid fa-box-open text-primary me-2"></i>Products</h4>
+        <small class="text-muted">Catalog of products &amp; services · <a href="/categories/">Manage categories →</a></small>
+    </div>
+    <button class="btn btn-primary" onclick="openProductModal()"><i class="fa-solid fa-plus me-1"></i>New Product</button>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex gap-2">
+        <select id="fCategory" class="form-select form-select-sm w-auto"><option value="">All Categories</option>
+            {% for c in categories %}<option value="{{ c.id }}">{{ c.category_name }}</option>{% endfor %}</select>
+        <select id="fStatus" class="form-select form-select-sm w-auto"><option value="">All Statuses</option>
+            <option>Active</option><option>Inactive</option></select>
+    </div>
+    <div class="card-body">
+<table id="productsTable" class="table table-hover w-100">
+    <thead><tr><th>ID</th><th>SKU</th><th>Name</th><th>Category</th><th>Unit Price</th><th>Tax %</th>
+        <th>Stock</th><th>Status</th><th class="no-export">Actions</th></tr></thead>
+</table>
+    </div>
+</div>
+
+<div class="modal fade" id="productModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form id="productForm" novalidate>
+                <input type="hidden" name="id" id="pr_id">
+                <div class="modal-header"><h5 class="modal-title" id="productModalTitle">New Product</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body row g-3">
+                    <div class="col-md-4"><label class="form-label">SKU *</label><input name="sku" class="form-control" required></div>
+                    <div class="col-md-8"><label class="form-label">Product Name *</label><input name="product_name" class="form-control" required></div>
+                    <div class="col-md-6"><label class="form-label">Category</label>
+                        <select name="category_id" class="form-select"><option value="">--</option>
+                            {% for c in categories %}<option value="{{ c.id }}">{{ c.category_name }}</option>{% endfor %}</select></div>
+                    <div class="col-md-3"><label class="form-label">Unit Price ($)</label>
+                        <input name="unit_price" type="number" step="0.01" min="0" class="form-control" value="0"></div>
+                    <div class="col-md-3"><label class="form-label">Tax Rate (%)</label>
+                        <input name="tax_rate" type="number" step="0.01" min="0" max="100" class="form-control" value="0"></div>
+                    <div class="col-md-4"><label class="form-label">Stock Quantity</label>
+                        <input name="stock_quantity" type="number" class="form-control" value="0"></div>
+                    <div class="col-md-4"><label class="form-label">Status</label>
+                        <select name="status" class="form-select"><option>Active</option><option>Inactive</option></select></div>
+                    <div class="col-12"><label class="form-label">Description</label><textarea name="description" rows="2" class="form-control"></textarea></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary px-4"><i class="fa-solid fa-floppy-disk me-1"></i>Save Product</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let productTable;
+$(function () {
+    productTable = initDataTable('#productsTable', '/products/data/', [
+        { data: 'id' },
+        { data: 'sku', className: 'text-muted font-monospace small' },
+        { data: 'product_name', className: 'fw-semibold' },
+        { data: 'category' },
+        { data: 'unit_price', render: d => '<strong>$' + d + '</strong>' },
+        { data: 'tax_rate', render: d => d + '%' },
+        { data: null, render: (d, t, r) => `<span class="badge badge-soft-${r.stock_class}">${r.stock_quantity}</span>` },
+        { data: 'status', render: d => `<span class="badge badge-soft-${d === 'Active' ? 'success' : 'secondary'}">${d}</span>` },
+        { data: null, className: 'no-export', orderable: false, searchable: false, render: (d, t, r) => `
+            <button class="btn btn-sm btn-outline-warning" onclick='editProduct(${r.id})'><i class="fa-solid fa-pen"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteProduct(${r.id})"><i class="fa-solid fa-trash"></i></button>` }
+    ], {
+        filters: d => {
+            d.category_id = $('#fCategory').val() || '';
+            d.status = $('#fStatus').val() || '';
+        }
+    });
+    $('#fCategory,#fStatus').on('change', () => productTable.ajax.reload());
+});
+
+function openProductModal() {
+    $('#productForm')[0].reset();
+    $('#pr_id').val('');
+    $('#productModalTitle').text('New Product');
+    new bootstrap.Modal('#productModal').show();
+}
+
+function editProduct(id) {
+    $.get(`/products/${id}/get/`).done(res => {
+        const p = res.product;
+        const f = $('#productForm')[0];
+        f.reset();
+        for (const [k, v] of Object.entries(p)) if (f.elements[k]) f.elements[k].value = v ?? '';
+        $('#productModalTitle').text('Edit Product');
+        new bootstrap.Modal('#productModal').show();
+    });
+}
+
+$('#productForm').on('submit', function (e) {
+    e.preventDefault();
+    $.post('/products/save/', $(this).serialize()).done(res => {
+        toast(res.message);
+        bootstrap.Modal.getInstance('#productModal').hide();
+        productTable.ajax.reload(null, false);
+    }).fail(handleAjaxError);
+});
+
+function deleteProduct(id) { confirmDelete(`/products/${id}/delete/`, () => productTable.ajax.reload(null, false)); }
+</script>
+{% endblock %}

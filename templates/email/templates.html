@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block title %}Email Templates{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fa-solid fa-envelope-open-text text-primary me-2"></i>Email Templates</h4>
+        <small class="text-muted">Reusable content with <code>{{ '{customer_name}' }}</code>,
+            <code>{{ '{contact_name}' }}</code>, <code>{{ '{sender_name}' }}</code> placeholders</small>
+    </div>
+    <button class="btn btn-primary" onclick="openTplModal()"><i class="fa-solid fa-plus me-1"></i>New Template</button>
+</div>
+
+<div class="card"><div class="card-body">
+<table id="tplTable" class="table table-hover w-100" style="width:100%">
+    <thead><tr><th>ID</th><th>Name</th><th>Subject</th><th>Used</th><th>Updated</th><th class="no-export">Actions</th></tr></thead>
+</table>
+</div></div>
+
+<div class="modal fade" id="tplModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form id="tplForm">
+                <input type="hidden" name="id" id="et_id">
+                <div class="modal-header"><h5 class="modal-title">Email Template</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body row g-3">
+                    <div class="col-md-6"><label class="form-label">Template Name *</label>
+                        <input name="name" class="form-control" required></div>
+                    <div class="col-md-6"><label class="form-label">Subject *</label>
+                        <input name="subject" class="form-control" required></div>
+                    <div class="col-12"><label class="form-label">Body</label>
+                        <textarea name="body" rows="8" class="form-control font-monospace"
+                                  placeholder="Dear {{ '{customer_name}' }}, ..."></textarea></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary px-4">Save Template</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let tplTable;
+$(function () {
+    tplTable = initDataTable('#tplTable', '/email/templates/data/', [
+        { data: 'id' },
+        { data: 'name', className: 'fw-semibold' },
+        { data: 'subject' },
+        { data: 'usage', render: d => `<span class="badge badge-soft-primary">${d}</span>` },
+        { data: 'updated_at' },
+        { data: null, className: 'no-export', orderable: false, searchable: false, render: (d, t, r) => `
+            <a href="/email/bulk/?template=${r.id}" class="btn btn-sm btn-outline-success" title="Use in campaign"><i class="fa-solid fa-paper-plane"></i></a>
+            <button class="btn btn-sm btn-outline-warning" onclick='editTpl(${JSON.stringify(JSON.stringify(r))})'><i class="fa-solid fa-pen"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteTpl(${r.id})"><i class="fa-solid fa-trash"></i></button>` }
+    ], { serverSide: false });
+});
+
+function openTplModal() {
+    $('#tplForm')[0].reset();
+    $('#et_id').val('');
+    new bootstrap.Modal('#tplModal').show();
+}
+
+function editTpl(json) {
+    const r = JSON.parse(json);
+    $.get(`/email/templates/${r.id}/get/`).done(res => {
+        const t = res.template;
+        const f = $('#tplForm')[0];
+        f.reset();
+        $('#et_id').val(t.id);
+        f.name.value = t.name; f.subject.value = t.subject; f.body.value = t.body || '';
+        new bootstrap.Modal('#tplModal').show();
+    });
+}
+
+$('#tplForm').on('submit', function (e) {
+    e.preventDefault();
+    $.post('/email/templates/save/', $(this).serialize()).done(res => {
+        toast(res.message);
+        bootstrap.Modal.getInstance('#tplModal').hide();
+        tplTable.ajax.reload(null, false);
+    }).fail(handleAjaxError);
+});
+
+function deleteTpl(id) { confirmDelete(`/email/templates/${id}/delete/`, () => tplTable.ajax.reload(null, false)); }
+</script>
+{% endblock %}

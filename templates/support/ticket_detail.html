@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% block title %}{{ ticket.ticket_number }}{% endblock %}
+{% block content %}
+<div class="mb-3">
+    <a href="/tickets/" class="small text-decoration-none"><i class="fa-solid fa-arrow-left me-1"></i>Back to Tickets</a>
+    <h4 class="fw-bold mb-0 mt-1">{{ ticket.ticket_number }}
+        {% if ticket.status == 'Open' %}<span class="badge badge-soft-danger">Open</span>
+        {% elif ticket.status == 'In Progress' %}<span class="badge badge-soft-info">In Progress</span>
+        {% elif ticket.status == 'On Hold' %}<span class="badge badge-soft-warning">On Hold</span>
+        {% else %}<span class="badge badge-soft-success">Closed</span>{% endif %}
+    </h4>
+    <small class="text-muted">{{ ticket.subject }} · opened {{ ticket.created_at|date:"d M Y H:i" }}</small>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card mb-3"><div class="card-body">
+            <div class="fw-semibold mb-2"><i class="fa-solid fa-circle-info text-primary me-1"></i>Original Request</div>
+            <p class="mb-0" style="white-space:pre-wrap">{{ ticket.description|default:'—' }}</p>
+        </div></div>
+
+        <div class="card"><div class="card-header d-flex justify-content-between align-items-center">
+            Conversation <span class="badge badge-soft-secondary">{{ replies|length }}</span>
+        </div><div class="card-body" style="max-height:55vh;overflow-y:auto">
+            {% for r in replies %}
+            <div class="d-flex gap-2 mb-3 {% if r.user_id == request.user.id %}flex-row-reverse{% endif %}">
+                {% if r.user.avatar %}
+                <img src="{{ r.user.avatar.url }}" class="rounded-circle" style="width:36px;height:36px;object-fit:cover" alt="">
+                {% else %}
+                <div class="rounded-circle bg-secondary-subtle d-flex align-items-center justify-content-center"
+                     style="width:36px;height:36px;font-weight:700;color:#495057">
+                    {{ r.user.first_name.0|default:'' }}{{ r.user.last_name.0|default:'' }}
+                </div>
+                {% endif %}
+                <div class="flex-grow-1">
+                    <div class="border rounded-3 p-2 {% if r.user_id == request.user.id %}bg-primary bg-opacity-10{% else %}bg-body-tertiary{% endif %}"
+                         style="max-width:85%">
+                        <div class="small" style="white-space:pre-wrap">{{ r.message }}</div>
+                        {% if r.attachment %}
+                        <a href="{{ r.attachment.url }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-2">
+                            <i class="fa-solid fa-paperclip me-1"></i>{{ r.attachment.name }}</a>
+                        {% endif %}
+                    </div>
+                    <small class="text-muted {% if r.user_id == request.user.id %}text-end d-block{% endif %}">
+                        {{ r.user.get_full_name }} · {{ r.created_at|date:"d M H:i" }}
+                    </small>
+                </div>
+            </div>
+            {% empty %}<p class="text-muted small text-center py-3">No replies yet.</p>
+            {% endfor %}
+        </div>
+        <div class="card-footer">
+            <form id="replyForm" enctype="multipart/form-data">
+                <textarea name="message" rows="2" class="form-control mb-2" placeholder="Write a reply..." required></textarea>
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <input type="file" name="attachment" class="form-control form-control-sm w-auto">
+                    <button class="btn btn-primary btn-sm px-4"><i class="fa-solid fa-paper-plane me-1"></i>Send Reply</button>
+                </div>
+            </form>
+        </div></div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card mb-3"><div class="card-header">Ticket Details</div><div class="card-body small">
+            <table class="table table-sm small">
+                <tr><td class="text-muted">Customer</td>
+                    <td><a href="/customers/{{ ticket.customer_id }}/">{{ ticket.customer.company_name }}</a></td></tr>
+                <tr><td class="text-muted">Category</td><td>{{ ticket.category.name|default:'—' }}</td></tr>
+                <tr><td class="text-muted">Priority</td><td>
+                    <span class="badge badge-soft-{{ ticket.priority|lower }}">{{ ticket.priority }}</span></td></tr>
+                <tr><td class="text-muted">Assigned To</td>
+                    <td>{{ ticket.assigned_to.get_full_name|default:'Unassigned' }}</td></tr>
+            </table>
+            <label class="form-label mt-2">Change Status</label>
+            <select id="statusSelect" class="form-select form-select-sm">
+                <option {% if ticket.status == 'Open' %}selected{% endif %}>Open</option>
+                <option {% if ticket.status == 'In Progress' %}selected{% endif %}>In Progress</option>
+                <option {% if ticket.status == 'On Hold' %}selected{% endif %}>On Hold</option>
+                <option {% if ticket.status == 'Closed' %}selected{% endif %}>Closed</option>
+            </select>
+        </div></div>
+
+        <div class="card"><div class="card-header">Attachments</div><div class="list-group list-group-flush">
+            {% for r in replies %}{% if r.attachment %}
+            <a href="{{ r.attachment.url }}" target="_blank" class="list-group-item small">
+                <i class="fa-solid fa-paperclip me-1"></i>{{ r.attachment.name }}
+                <span class="text-muted float-end">{{ r.user.username }}</span></a>
+            {% endif %}{% endfor %}
+        </div></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$('#replyForm').on('submit', function (e) {
+    e.preventDefault();
+    $.ajax({
+        url: '/tickets/{{ ticket.pk }}/replies/', method: 'POST',
+        data: new FormData(this), processData: false, contentType: false
+    }).done(res => {
+        toast(res.message);
+        setTimeout(() => location.reload(), 400);
+    }).fail(handleAjaxError);
+});
+
+$('#statusSelect').on('change', function () {
+    $.post('/tickets/save/', {
+        id: '{{ ticket.pk }}',
+        subject: '{{ ticket.subject|escapejs }}',
+        customer_id: '{{ ticket.customer_id }}',
+        description: '{{ ticket.description|escapejs }}',
+        priority: '{{ ticket.priority }}',
+        status: this.value,
+        category_id: '{{ ticket.category_id|default_if_none:"" }}',
+        assigned_to: '{{ ticket.assigned_to_id|default_if_none:"" }}'
+    }).done(res => { toast(res.message); setTimeout(() => location.reload(), 400); })
+      .fail(handleAjaxError);
+});
+</script>
+{% endblock %}

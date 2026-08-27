@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% block title %}Deals{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fa-solid fa-handshake text-primary me-2"></i>Deals</h4>
+        <small class="text-muted">All deals across pipelines · <a href="/pipelines/">Open Kanban Board →</a></small>
+    </div>
+    <button class="btn btn-primary" onclick="openDealModal()"><i class="fa-solid fa-plus me-1"></i>New Deal</button>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex gap-2 flex-wrap">
+        <select id="fPipeline" class="form-select form-select-sm w-auto"><option value="">All Pipelines</option>
+            {% for p in pipelines %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select>
+        <select id="fStatus" class="form-select form-select-sm w-auto"><option value="">All Statuses</option>
+            <option>Open</option><option>Won</option><option>Lost</option></select>
+    </div>
+    <div class="card-body">
+<table id="dealsTable" class="table table-hover w-100">
+    <thead><tr><th>ID</th><th>Deal Name</th><th>Customer</th><th>Contact</th><th>Stage</th><th>Value</th>
+        <th>Prob.</th><th>Close Date</th><th>Status</th><th>Assigned</th><th class="no-export">Actions</th></tr></thead>
+</table>
+    </div>
+</div>
+
+<div class="modal fade" id="dealModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form id="dealForm" novalidate>
+                <input type="hidden" name="id" id="d_id">
+                <div class="modal-header"><h5 class="modal-title" id="dealModalTitle">New Deal</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body row g-3">
+                    <div class="col-md-8"><label class="form-label">Deal Name *</label><input name="deal_name" class="form-control" required></div>
+                    <div class="col-md-4"><label class="form-label">Status</label>
+                        <select name="status" class="form-select"><option>Open</option><option>Won</option><option>Lost</option></select></div>
+                    <div class="col-md-4"><label class="form-label">Stage</label>
+                        <select name="stage_id" class="form-select"><option value="">--</option>
+                            {% for s in stages %}<option value="{{ s.id }}">{{ s.pipeline.name }} — {{ s.name }}</option>{% endfor %}</select></div>
+                    <div class="col-md-4"><label class="form-label">Expected Value ($)</label>
+                        <input name="expected_value" type="number" step="0.01" min="0" class="form-control" value="0"></div>
+                    <div class="col-md-4"><label class="form-label">Probability (%)</label>
+                        <input name="probability" type="number" min="0" max="100" class="form-control" value="50"></div>
+                    <div class="col-md-4"><label class="form-label">Expected Close Date</label>
+                        <input name="expected_close_date" type="date" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Customer</label>
+                        <select name="customer_id" class="form-select"><option value="">--</option>
+                            {% for c in customers %}<option value="{{ c.id }}">{{ c.company_name }}</option>{% endfor %}</select></div>
+                    <div class="col-md-6"><label class="form-label">Lead</label>
+                        <select name="lead_id" class="form-select"><option value="">--</option>
+                            {% for l in leads %}<option value="{{ l.id }}">{{ l.first_name }} {{ l.last_name }}{% if l.company %} ({{ l.company }}){% endif %}</option>{% endfor %}</select></div>
+                    <div class="col-md-6"><label class="form-label">Assigned To</label>
+                        <select name="assigned_to" class="form-select"><option value="">-- Unassigned --</option>
+                            {% for u in users %}<option value="{{ u.id }}">{{ u.get_full_name }}</option>{% endfor %}</select></div>
+                    <div class="col-md-12"><label class="form-label">Notes</label><textarea name="notes" rows="2" class="form-control"></textarea></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary px-4"><i class="fa-solid fa-floppy-disk me-1"></i>Save Deal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let dealTable;
+$(function () {
+    dealTable = initDataTable('#dealsTable', '/deals/data/', [
+        { data: 'id' },
+        { data: 'deal_name', className: 'fw-semibold' },
+        { data: 'customer' }, { data: 'contact' },
+        { data: 'stage', render: (d, t, r) => `<span class="badge" style="background:${r.stage_color}22;color:${r.stage_color}">${d}</span>` },
+        { data: 'expected_value', render: d => '<strong>$' + d + '</strong>' },
+        { data: 'probability', render: d => d + '%' },
+        { data: 'expected_close_date' },
+        { data: 'status', render: (d, t, r) => `<span class="badge badge-soft-${r.status_class === 'primary' ? 'info' : r.status_class}">${d}</span>` },
+        { data: 'assigned_to' },
+        { data: null, className: 'no-export', orderable: false, searchable: false, render: (d, t, r) => `
+            <button class="btn btn-sm btn-outline-warning" onclick='editDeal(${JSON.stringify(JSON.stringify(r))})'><i class="fa-solid fa-pen"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteDeal(${r.id})"><i class="fa-solid fa-trash"></i></button>` }
+    ], {
+        orderCol: 0,
+        filters: d => {
+            d.pipeline_id = $('#fPipeline').val() || '';
+            d.status = $('#fStatus').val() || '';
+        }
+    });
+    $('#fPipeline,#fStatus').on('change', () => dealTable.ajax.reload());
+});
+
+function openDealModal() {
+    $('#dealForm')[0].reset();
+    $('#d_id').val('');
+    $('#dealModalTitle').text('New Deal');
+    new bootstrap.Modal('#dealModal').show();
+}
+
+function editDeal(json) {
+    const r = JSON.parse(json);
+    $.get(`/deals/${r.id}/get/`).done(res => {
+        const d = res.deal;
+        const f = $('#dealForm')[0];
+        f.reset();
+        for (const [k, v] of Object.entries(d)) if (f.elements[k]) f.elements[k].value = v ?? '';
+        $('#dealModalTitle').text('Edit Deal');
+        new bootstrap.Modal('#dealModal').show();
+    });
+}
+
+$('#dealForm').on('submit', function (e) {
+    e.preventDefault();
+    $.post('/deals/save/', $(this).serialize()).done(res => {
+        toast(res.message);
+        bootstrap.Modal.getInstance('#dealModal').hide();
+        dealTable.ajax.reload(null, false);
+    }).fail(handleAjaxError);
+});
+
+function deleteDeal(id) { confirmDelete(`/deals/${id}/delete/`, () => dealTable.ajax.reload(null, false)); }
+</script>
+{% endblock %}

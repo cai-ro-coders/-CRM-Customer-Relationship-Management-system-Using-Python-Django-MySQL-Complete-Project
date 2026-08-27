@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+{% block title %}Pipelines{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fa-solid fa-diagram-project text-primary me-2"></i>Sales Pipeline</h4>
+        <small class="text-muted">Drag & drop deals between stages</small>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+        <select id="pipelineSelect" class="form-select form-select-sm w-auto" onchange="location='/pipelines/?pipeline='+this.value">
+            {% for p in pipelines %}<option value="{{ p.id }}" {% if p.id == pipeline.id %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
+        </select>
+        <a href="/pipelines/manage/" class="btn btn-outline-secondary"><i class="fa-solid fa-sliders me-1"></i>Manage</a>
+        <button class="btn btn-primary" onclick="openDealModal()"><i class="fa-solid fa-plus me-1"></i>New Deal</button>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3"><div class="card stat-card text-primary"><div class="card-body d-flex gap-3 align-items-center">
+        <div class="stat-icon bg-primary"><i class="fa-solid fa-chart-column"></i></div>
+        <div><h5 class="mb-0">${{ forecast|floatformat:0 }}</h5><small>Revenue Forecast (Weighted)</small></div>
+    </div></div></div>
+    <div class="col-md-3"><div class="card stat-card text-success"><div class="card-body d-flex gap-3 align-items-center">
+        <div class="stat-icon bg-success"><i class="fa-solid fa-trophy"></i></div>
+        <div><h5 class="mb-0">${{ won_value|floatformat:0 }}</h5><small>Won Value</small></div>
+    </div></div></div>
+    <div class="col-md-3"><div class="card stat-card text-info"><div class="card-body d-flex gap-3 align-items-center">
+        <div class="stat-icon bg-info"><i class="fa-solid fa-percent"></i></div>
+        <div><h5 class="mb-0">{{ win_rate }}%</h5><small>Win Rate</small></div>
+    </div></div></div>
+    <div class="col-md-3"><div class="card stat-card text-warning"><div class="card-body d-flex gap-3 align-items-center">
+        <div class="stat-icon bg-warning"><i class="fa-solid fa-handshake"></i></div>
+        <div><h5 class="mb-0">{{ open_count }}</h5><small>Open Deals</small></div>
+    </div></div></div>
+</div>
+
+<div class="kanban-wrapper">
+    <div class="kanban-board" id="kanbanBoard">
+        {% for col in stage_data %}
+        <div class="kanban-col" data-stage-id="{{ col.stage.id }}">
+            <div class="kanban-col-header" style="border-color: {{ col.stage.color }};">
+                <span style="color:{{ col.stage.color }}">{{ col.stage.name }}</span>
+                <span class="badge badge-light border">${{ col.total|floatformat:0 }}</span>
+            </div>
+            <div class="kanban-cards" data-stage-id="{{ col.stage.id }}">
+                {% for d in col.deals %}
+                <div class="kanban-card" draggable="true" data-deal-id="{{ d.id }}">
+                    <div class="fw-semibold mb-1">{{ d.deal_name }}</div>
+                    <div class="text-muted smaller mb-1">
+                        <i class="fa-solid fa-building-user me-1"></i>{{ d.customer.company_name|default:"—" }}
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <strong class="text-success">${{ d.expected_value|floatformat:0 }}</strong>
+                        <span class="badge badge-soft-secondary" title="Probability">{{ d.probability }}%</span>
+                    </div>
+                    {% if d.expected_close_date %}
+                    <div class="text-muted smaller mt-1">
+                        <i class="fa-regular fa-calendar me-1"></i>{{ d.expected_close_date }}
+                    </div>
+                    {% endif %}
+                    <div class="mt-2 d-flex justify-content-between">
+                        <span class="smaller text-muted">{{ d.assigned_to.get_full_name|default:"—" }}</span>
+                        <span>
+                            <button class="btn btn-sm btn-link p-0 me-1 text-warning" onclick='editDeal({{ d.pk }})'><i class="fa-solid fa-pen small"></i></button>
+                            <button class="btn btn-sm btn-link p-0 text-danger" onclick="deleteDeal({{ d.pk }})"><i class="fa-solid fa-trash small"></i></button>
+                        </span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-muted small text-center py-3">Drop deals here</div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Deal modal -->
+<div class="modal fade" id="dealModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form id="dealForm" novalidate>
+                <input type="hidden" name="id" id="d_id">
+                <input type="hidden" name="stage_id" id="d_stage">
+                <div class="modal-header"><h5 class="modal-title" id="dealModalTitle">New Deal</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body row g-3">
+                    <div class="col-md-8"><label class="form-label">Deal Name *</label><input name="deal_name" class="form-control" required></div>
+                    <div class="col-md-4"><label class="form-label">Status</label>
+                        <select name="status" class="form-select"><option>Open</option><option>Won</option><option>Lost</option></select></div>
+                    <div class="col-md-4"><label class="form-label">Expected Value ($)</label>
+                        <input name="expected_value" type="number" step="0.01" min="0" class="form-control" value="0"></div>
+                    <div class="col-md-4"><label class="form-label">Probability (%)</label>
+                        <input name="probability" type="number" min="0" max="100" class="form-control" value="50"></div>
+                    <div class="col-md-4"><label class="form-label">Expected Close Date</label>
+                        <input name="expected_close_date" type="date" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Customer</label>
+                        <select name="customer_id" class="form-select"><option value="">--</option>
+                            {% for c in customers %}<option value="{{ c.id }}">{{ c.company_name }}</option>{% endfor %}</select></div>
+                    <div class="col-md-6"><label class="form-label">Lead</label>
+                        <select name="lead_id" class="form-select"><option value="">--</option>
+                            {% for l in leads %}<option value="{{ l.id }}">{{ l.first_name }} {{ l.last_name }}</option>{% endfor %}</select></div>
+                    <div class="col-md-6"><label class="form-label">Assigned To</label>
+                        <select name="assigned_to" class="form-select"><option value="">-- Unassigned --</option>
+                            {% for u in users %}<option value="{{ u.id }}">{{ u.get_full_name }}</option>{% endfor %}</select></div>
+                    <div class="col-md-12"><label class="form-label">Notes</label><textarea name="notes" rows="2" class="form-control"></textarea></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary px-4"><i class="fa-solid fa-floppy-disk me-1"></i>Save Deal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let draggedDeal = null;
+
+$(function () {
+    // Drag & Drop
+    document.querySelectorAll('.kanban-card').forEach(card => {
+        card.addEventListener('dragstart', function () {
+            draggedDeal = this;
+            setTimeout(() => this.classList.add('dragging'), 0);
+        });
+        card.addEventListener('dragend', function () {
+            this.classList.remove('dragging');
+            draggedDeal = null;
+        });
+    });
+
+    document.querySelectorAll('.kanban-cards').forEach(colEl => {
+        const parentCol = colEl.closest('.kanban-col');
+        ['dragover', 'dragenter'].forEach(ev =>
+            parentCol.addEventListener(ev, function (e) {
+                e.preventDefault();
+                this.classList.add('drag-over');
+            }));
+        ['dragleave', 'drop'].forEach(ev =>
+            parentCol.addEventListener(ev, function () { this.classList.remove('drag-over'); }));
+
+        parentCol.addEventListener('drop', function (e) {
+            e.preventDefault();
+            if (!draggedDeal) return;
+            const dealId = draggedDeal.dataset.dealId;
+            const stageId = this.dataset.stageId;
+
+            // optimistic move
+            const cards = this.querySelector('.kanban-cards');
+            const placeholder = cards.querySelector('.text-muted');
+            if (placeholder && placeholder.textContent.includes('Drop deals')) placeholder.remove();
+            cards.appendChild(draggedDeal);
+
+            $.ajax({
+                url: '/deals/move-stage/', method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ deal_id: dealId, stage_id: stageId })
+            }).done(res => {
+                toast(res.message);
+                Object.entries(res.stage_totals || {}).forEach(([sid, total]) => {
+                    const badge = $(`.kanban-col[data-stage-id="${sid}"] .kanban-col-header .badge`);
+                    badge.text('$' + Number(total).toLocaleString(undefined,{maximumFractionDigits:0}));
+                });
+            }).fail(function (xhr) {
+                handleAjaxError(xhr);
+                location.reload();
+            });
+        });
+    });
+});
+
+function openDealModal(stageId) {
+    $('#dealForm')[0].reset();
+    $('#d_id').val('');
+    $('#d_stage').val(stageId || '{{ pipeline.stages.first.id|default:"" }}');
+    $('#dealModalTitle').text('New Deal');
+    new bootstrap.Modal('#dealModal').show();
+}
+
+const dealStages = [
+    {% for st in stage_data %}{id: {{ st.stage.id }}, name: "{{ st.stage.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}
+];
+
+function editDeal(id) {
+    $.get(`/deals/${id}/get/`).done(res => {
+        const d = res.deal;
+        const f = $('#dealForm')[0];
+        f.reset();
+        for (const [k, v] of Object.entries(d)) if (f.elements[k]) f.elements[k].value = v ?? '';
+        $('#dealModalTitle').text('Edit Deal');
+        new bootstrap.Modal('#dealModal').show();
+    });
+}
+
+$('#dealForm').on('submit', function (e) {
+    e.preventDefault();
+    $.post('/deals/save/', $(this).serialize()).done(res => {
+        toast(res.message);
+        bootstrap.Modal.getInstance('#dealModal').hide();
+        setTimeout(() => location.reload(), 500);
+    }).fail(handleAjaxError);
+});
+
+function deleteDeal(id) {
+    confirmDelete(`/deals/${id}/delete/`, () => location.reload());
+}
+</script>
+{% endblock %}

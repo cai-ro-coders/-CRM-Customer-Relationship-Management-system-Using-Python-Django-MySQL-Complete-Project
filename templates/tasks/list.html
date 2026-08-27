@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% block title %}Tasks{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fa-solid fa-clipboard-list text-primary me-2"></i>Tasks
+            {% if scope == 'my' %}<span class="badge badge-soft-primary">Mine</span>{% endif %}</h4>
+        <small class="text-muted">Organize work with priorities and due dates</small>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="/tasks/board/" class="btn btn-outline-secondary"><i class="fa-solid fa-table-columns me-1"></i>Board</a>
+        <button class="btn btn-primary" onclick="openTaskModal()"><i class="fa-solid fa-plus me-1"></i>New Task</button>
+    </div>
+</div>
+
+{% if scope == 'my' %}<input type="hidden" id="taskScope" value="my">{% endif %}
+
+<div class="card">
+    <div class="card-header d-flex gap-2 flex-wrap">
+        <select id="fStatus" class="form-select form-select-sm w-auto"><option value="">All Statuses</option>
+            {% for s in statuses %}<option>{{ s }}</option>{% endfor %}</select>
+        <select id="fPriority" class="form-select form-select-sm w-auto"><option value="">All Priorities</option>
+            {% for p in priorities %}<option>{{ p }}</option>{% endfor %}</select>
+    </div>
+    <div class="card-body">
+<table id="tasksTable" class="table table-hover w-100">
+    <thead><tr><th>ID</th><th>Title</th><th>Related</th><th>Priority</th><th>Status</th>
+        <th>Due Date</th><th>Reminder</th><th>Assigned To</th><th class="no-export">Actions</th></tr></thead>
+</table>
+    </div>
+</div>
+
+<div class="modal fade" id="taskModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form id="taskForm" novalidate>
+                <input type="hidden" name="id" id="t_id">
+                <div class="modal-header"><h5 class="modal-title" id="taskModalTitle">New Task</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body row g-3">
+                    <div class="col-md-8"><label class="form-label">Title *</label><input name="title" class="form-control" required></div>
+                    <div class="col-md-4"><label class="form-label">Status</label>
+                        <select name="status" class="form-select">
+                            <option>Pending</option><option>In Progress</option><option>Completed</option><option>Cancelled</option>
+                        </select></div>
+                    <div class="col-md-4"><label class="form-label">Priority</label>
+                        <select name="priority" class="form-select"><option>Low</option><option selected>Medium</option><option>High</option><option>Urgent</option></select></div>
+                    <div class="col-md-4"><label class="form-label">Due Date</label><input type="date" name="due_date" class="form-control"></div>
+                    <div class="col-md-4"><label class="form-label">Reminder Date</label><input type="date" name="reminder_date" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Customer</label>
+                        <select name="customer_id" class="form-select"><option value="">--</option>
+                            {% for c in customers %}<option value="{{ c.id }}">{{ c.company_name }}</option>{% endfor %}</select></div>
+                    <div class="col-md-3"><label class="form-label">Lead</label>
+                        <select name="lead_id" class="form-select"><option value="">--</option>
+                            {% for l in leads %}<option value="{{ l.id }}">{{ l.first_name }} {{ l.last_name }}</option>{% endfor %}</select></div>
+                    <div class="col-md-3"><label class="form-label">Deal</label>
+                        <select name="deal_id" class="form-select"><option value="">--</option>
+                            {% for d in deals %}<option value="{{ d.id }}">{{ d.deal_name|truncatechars:30 }}</option>{% endfor %}</select></div>
+                    <div class="col-md-6"><label class="form-label">Assigned To</label>
+                        <select name="assigned_to" class="form-select"><option value="">-- Unassigned --</option>
+                            {% for u in users %}<option value="{{ u.id }}">{{ u.get_full_name }}</option>{% endfor %}</select></div>
+                    <div class="col-12"><label class="form-label">Description</label><textarea name="description" rows="2" class="form-control"></textarea></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary px-4"><i class="fa-solid fa-floppy-disk me-1"></i>Save Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let taskTable;
+$(function () {
+    taskTable = initDataTable('#tasksTable', '/tasks/data/', [
+        { data: 'id' },
+        { data: 'title', className: 'fw-semibold' },
+        { data: 'related' },
+        { data: 'priority', render: (d, t, r) => `<span class="badge badge-soft-${r.priority_class}">${d}</span>` },
+        { data: 'status', render: (d, t, r) => `<span class="badge badge-soft-${r.status_class === 'primary' ? 'info' : r.status_class}">${d}</span>` },
+        { data: 'due_date', render: (d, t, r) => r.overdue ? `<span class="text-danger fw-bold">${d} <i class="fa-solid fa-triangle-exclamation"></i></span>` : d },
+        { data: 'reminder_date' },
+        { data: 'assigned_to' },
+        { data: null, className: 'no-export', orderable: false, searchable: false, render: (d, t, r) => `
+            <button class="btn btn-sm ${r.status === 'Completed' ? 'btn-success' : 'btn-outline-success'}" title="Toggle complete"
+                    onclick="toggleTask(${r.id}, ${r.status === 'Completed'})"><i class="fa-solid fa-check"></i></button>
+            <button class="btn btn-sm btn-outline-warning" onclick='editTask(${JSON.stringify(JSON.stringify(r))})'><i class="fa-solid fa-pen"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteTask(${r.id})"><i class="fa-solid fa-trash"></i></button>` }
+    ], {
+        orderCol: 0,
+        filters: d => {
+            if ($('#taskScope').length) d.scope = 'my';
+            d.status = $('#fStatus').val() || '';
+            d.priority = $('#fPriority').val() || '';
+        }
+    });
+    $('#fStatus,#fPriority').on('change', () => taskTable.ajax.reload());
+});
+
+function openTaskModal() {
+    $('#taskForm')[0].reset();
+    $('#t_id').val('');
+    $('#taskModalTitle').text('New Task');
+    new bootstrap.Modal('#taskModal').show();
+}
+
+function editTask(json) {
+    const r = JSON.parse(json);
+    $.get(`/tasks/${r.id}/get/`).done(res => {
+        const t = res.task;
+        const f = $('#taskForm')[0];
+        f.reset();
+        for (const [k, v] of Object.entries(t)) if (f.elements[k]) f.elements[k].value = v ?? '';
+        $('#taskModalTitle').text('Edit Task');
+        new bootstrap.Modal('#taskModal').show();
+    });
+}
+
+$('#taskForm').on('submit', function (e) {
+    e.preventDefault();
+    $.post('/tasks/save/', $(this).serialize()).done(res => {
+        toast(res.message);
+        bootstrap.Modal.getInstance('#taskModal').hide();
+        taskTable.ajax.reload(null, false);
+    }).fail(handleAjaxError);
+});
+
+function toggleTask(id, done) {
+    $.post(`/tasks/${id}/toggle/`).done(res => { toast(res.message); taskTable.ajax.reload(null, false); });
+}
+function deleteTask(id) { confirmDelete(`/tasks/${id}/delete/`, () => taskTable.ajax.reload(null, false)); }
+</script>
+{% endblock %}

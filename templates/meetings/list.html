@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% block title %}Meetings{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fa-solid fa-calendar-days text-primary me-2"></i>Meetings</h4>
+        <small class="text-muted">Schedule and track customer meetings</small>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="/calendar/" class="btn btn-outline-secondary"><i class="fa-regular fa-calendar me-1"></i>Calendar</a>
+        <a href="/reminders/" class="btn btn-outline-secondary"><i class="fa-solid fa-bell me-1"></i>Reminders</a>
+        <button class="btn btn-primary" onclick="openMeetingModal()"><i class="fa-solid fa-plus me-1"></i>New Meeting</button>
+    </div>
+</div>
+
+<div class="card"><div class="card-body">
+<table id="meetingsTable" class="table table-hover w-100">
+    <thead><tr><th>ID</th><th>Title</th><th>Customer</th><th>Type</th><th>Location</th>
+        <th>Date</th><th>Time</th><th>Status</th><th>Attendees</th><th class="no-export">Actions</th></tr></thead>
+</table>
+</div></div>
+
+<div class="modal fade" id="meetingModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form id="meetingForm" novalidate>
+                <input type="hidden" name="id" id="m_id">
+                <div class="modal-header"><h5 class="modal-title" id="meetingModalTitle">New Meeting</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body row g-3">
+                    <div class="col-md-8"><label class="form-label">Title *</label><input name="title" class="form-control" required></div>
+                    <div class="col-md-4"><label class="form-label">Type</label>
+                        <select name="meeting_type" class="form-select">
+                            <option>Call</option><option>Video Call</option><option>In Person</option></select></div>
+                    <div class="col-md-4"><label class="form-label">Date *</label>
+                        <input type="date" name="meeting_date" class="form-control" required></div>
+                    <div class="col-md-4"><label class="form-label">Start Time *</label>
+                        <input type="time" name="start_time" class="form-control" required></div>
+                    <div class="col-md-4"><label class="form-label">End Time</label>
+                        <input type="time" name="end_time" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Location</label><input name="location" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Status</label>
+                        <select name="status" class="form-select">
+                            <option>Scheduled</option><option>Completed</option><option>Cancelled</option></select></div>
+                    <div class="col-md-6"><label class="form-label">Customer</label>
+                        <select name="customer_id" class="form-select"><option value="">--</option>
+                            {% for c in customers %}<option value="{{ c.id }}">{{ c.company_name }}</option>{% endfor %}</select></div>
+                    <div class="col-md-6"><label class="form-label">Lead</label>
+                        <select name="lead_id" class="form-select"><option value="">--</option>
+                            {% for l in leads %}<option value="{{ l.id }}">{{ l.first_name }} {{ l.last_name }}</option>{% endfor %}</select></div>
+                    <div class="col-12"><label class="form-label">Attendees (internal)</label>
+                        <select name="attendees" multiple class="form-select" size="4">
+                            {% for u in users %}<option value="{{ u.id }}">{{ u.get_full_name }}</option>{% endfor %}
+                        </select></div>
+                    <div class="col-12"><label class="form-label">Description</label><textarea name="description" rows="2" class="form-control"></textarea></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary px-4"><i class="fa-solid fa-floppy-disk me-1"></i>Save Meeting</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let meetingTable;
+$(function () {
+    meetingTable = initDataTable('#meetingsTable', '/meetings/data/', [
+        { data: 'id' },
+        { data: 'title', className: 'fw-semibold' },
+        { data: 'customer' },
+        { data: 'meeting_type' },
+        { data: 'location' },
+        { data: 'date' },
+        { data: 'time' },
+        { data: 'status', render: d => `<span class="badge badge-soft-${d === 'Scheduled' ? 'primary' : d === 'Completed' ? 'success' : 'danger'}">${d}</span>` },
+        { data: 'attendees', render: d => d.length ? d.join(', ') : '<span class="text-muted">—</span>' },
+        { data: null, className: 'no-export', orderable: false, searchable: false, render: (d, t, r) => `
+            <button class="btn btn-sm btn-outline-warning" onclick='editMeeting(${JSON.stringify(JSON.stringify(r))})'><i class="fa-solid fa-pen"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteMeeting(${r.id})"><i class="fa-solid fa-trash"></i></button>` }
+    ], { orderCol: 0 });
+});
+
+function openMeetingModal() {
+    $('#meetingForm')[0].reset();
+    $('#m_id').val('');
+    $('#meetingModalTitle').text('New Meeting');
+    new bootstrap.Modal('#meetingModal').show();
+}
+
+function editMeeting(json) {
+    const r = JSON.parse(json);
+    $.get(`/meetings/${r.id}/get/`).done(res => {
+        const m = res.meeting;
+        const f = $('#meetingForm')[0];
+        f.reset();
+        for (const [k, v] of Object.entries(m)) {
+            if (!f.elements[k]) continue;
+            if (k === 'attendees' && Array.isArray(v)) $(f.elements[k]).val(v.map(String));
+            else f.elements[k].value = v ?? '';
+        }
+        $('#meetingModalTitle').text('Edit Meeting');
+        new bootstrap.Modal('#meetingModal').show();
+    });
+}
+
+$('#meetingForm').on('submit', function (e) {
+    e.preventDefault();
+    $.post('/meetings/save/', $(this).serialize()).done(res => {
+        toast(res.message);
+        bootstrap.Modal.getInstance('#meetingModal').hide();
+        meetingTable.ajax.reload(null, false);
+    }).fail(handleAjaxError);
+});
+
+function deleteMeeting(id) { confirmDelete(`/meetings/${id}/delete/`, () => meetingTable.ajax.reload(null, false)); }
+</script>
+{% endblock %}

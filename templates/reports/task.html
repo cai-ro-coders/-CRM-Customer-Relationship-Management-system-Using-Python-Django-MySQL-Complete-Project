@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <a href="/reports/" class="small text-decoration-none"><i class="fa-solid fa-arrow-left me-1"></i>All Reports</a>
+        <h4 class="fw-bold mb-0 mt-1"><i class="fa-solid fa-clipboard-list text-primary me-2"></i>{{ title }}</h4>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="?format=csv" class="btn btn-outline-success btn-sm"><i class="fa-solid fa-file-csv me-1"></i>CSV</a>
+        <a href="?format=excel" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-file-excel me-1"></i>Excel</a>
+        <a href="?format=pdf" target="_blank" class="btn btn-outline-danger btn-sm"><i class="fa-solid fa-file-pdf me-1"></i>PDF / Print</a>
+    </div>
+</div>
+
+{{ by_status|json_script:"status-data" }}
+
+<div class="card mb-3"><div class="card-body py-3"><canvas id="statusChart" height="50"></canvas></div></div>
+
+<div class="card"><div class="card-body p-0">
+<table id="taskRepTable" class="table table-striped table-hover mb-0" style="width:100%">
+    <thead><tr>{% for h in header %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+    <tbody>
+        {% for row in rows %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}
+    </tbody>
+</table>
+</div></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(function () {
+    initDataTable('#taskRepTable', null, null, { pageLength: 25 });
+
+    const statusData = JSON.parse(document.getElementById('status-data').textContent);
+    new Chart(document.getElementById('statusChart'), {
+        type: 'bar',
+        data: {
+            labels: statusData.map(s => s.status),
+            datasets: [{ label: 'Tasks', data: statusData.map(s => s.c), borderRadius: 6,
+                backgroundColor: statusData.map(s =>
+                    ({ Pending: '#dc3545cc', 'In Progress': '#fd7e14cc', Completed: '#198754cc', Cancelled: '#adb5bdcc' }[s.status] || '#6c757dcc')) }]
+        },
+        options: { indexAxis: 'y', plugins: { legend: { display: false } },
+                   scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } }
+    });
+});
+</script>
+{% endblock %}

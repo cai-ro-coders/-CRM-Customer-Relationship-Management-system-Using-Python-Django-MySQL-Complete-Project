@@ -1,0 +1,220 @@
+{% extends 'base.html' %}
+{% block title %}Invoices{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-0"><i class="fa-solid fa-file-invoice-dollar text-primary me-2"></i>Invoices</h4>
+        <small class="text-muted">Billing &amp; receivables</small>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="/payments/" class="btn btn-outline-secondary"><i class="fa-solid fa-money-bill-transfer me-1"></i>Payments</a>
+        <button class="btn btn-primary" onclick="openInvoiceModal()"><i class="fa-solid fa-plus me-1"></i>New Invoice</button>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-4"><div class="card stat-card text-primary"><div class="card-body d-flex gap-3 align-items-center">
+        <div class="stat-icon bg-primary"><i class="fa-solid fa-file-invoice"></i></div>
+        <div><h5 class="mb-0">${{ stats.total_billed|floatformat:0 }}</h5><small>Total Billed</small></div></div></div></div>
+    <div class="col-md-4"><div class="card stat-card text-success"><div class="card-body d-flex gap-3 align-items-center">
+        <div class="stat-icon bg-success"><i class="fa-solid fa-sack-dollar"></i></div>
+        <div><h5 class="mb-0">${{ stats.total_paid|floatformat:0 }}</h5><small>Total Collected</small></div></div></div></div>
+    <div class="col-md-4"><div class="card stat-card text-danger"><div class="card-body d-flex gap-3 align-items-center">
+        <div class="stat-icon bg-danger"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <div><h5 class="mb-0">{{ stats.overdue_count }}</h5><small>Overdue Invoices</small></div></div></div></div>
+</div>
+
+<div class="card"><div class="card-body">
+<table id="invoicesTable" class="table table-hover w-100">
+    <thead><tr><th>ID</th><th>Invoice #</th><th>Customer</th><th>Date</th><th>Due</th><th>Total</th>
+        <th>Paid</th><th>Balance</th><th>Status</th><th class="no-export">Actions</th></tr></thead>
+</table>
+</div></div>
+
+<!-- Invoice modal (line items) -->
+<div class="modal fade" id="invoiceModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <form id="invoiceForm" onsubmit="saveInvoice(event)">
+                <input type="hidden" name="id" id="v_id">
+                <div class="modal-header"><h5 class="modal-title" id="invoiceModalTitle">New Invoice</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6"><label class="form-label">Customer *</label>
+                            <select name="customer_id" class="form-select" required>
+                                <option value="">-- Select --</option>
+                                {% for c in customers %}<option value="{{ c.id }}">{{ c.company_name }}</option>{% endfor %}
+                            </select></div>
+                        <div class="col-md-3"><label class="form-label">Invoice Date</label>
+                            <input type="date" name="invoice_date" id="vDate" class="form-control"></div>
+                        <div class="col-md-3"><label class="form-label">Due Date</label>
+                            <input type="date" name="due_date" class="form-control"></div>
+                    </div>
+                    <table class="table table-sm align-middle" id="invItemsTable">
+                        <thead><tr><th style="min-width:220px">Product</th><th style="width:90px">Qty</th>
+                            <th style="width:120px">Price</th><th style="width:100px">Tax %</th>
+                            <th style="width:100px">Disc %</th><th class="text-end">Total</th>
+                            <th class="no-export"></th></tr></thead>
+                        <tbody id="invItemRows"></tbody>
+                    </table>
+                    <button type="button" class="btn btn-sm btn-outline-primary"
+                            onclick="addInvItemRow()"><i class="fa-solid fa-plus me-1"></i>Add Item</button>
+                    <div class="row justify-content-end mt-3">
+                        <div class="col-md-4">
+                            <table class="table table-sm small">
+                                <tr><td>Subtotal</td><td class="text-end fw-semibold" id="vSubtotal">$0.00</td></tr>
+                                <tr><td>Tax</td><td class="text-end fw-semibold" id="vTax">$0.00</td></tr>
+                                <tr><td>Discount ($)</td>
+                                    <td class="text-end" style="width:110px">
+                                        <input name="discount_total" id="vDiscount" value="0"
+                                               class="form-control form-control-sm text-end" onchange="recalcInvTotals()"></td></tr>
+                                <tr class="table-light"><td><strong>Total</strong></td>
+                                    <td class="text-end fs-5 fw-bold text-success" id="vTotal">$0.00</td></tr>
+                            </table>
+                        </div>
+                    </div>
+                    <textarea name="notes" rows="2" class="form-control" placeholder="Notes / terms..."></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary px-4"><i class="fa-solid fa-floppy-disk me-1"></i>Save Invoice</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const invProducts = [
+    {% for p in products %}{id: {{ p.id }}, name: "{{ p.product_name|escapejs }}", price: '{{ p.unit_price }}', tax: '{{ p.tax_rate }}'}{% if not forloop.last %},{% endif %}{% endfor %}
+];
+let invoiceTable;
+
+$(function () {
+    invoiceTable = initDataTable('#invoicesTable', '/invoices/data/', [
+        { data: 'id' },
+        { data: null, render: r => `<a href="/invoices/${r.id}/" class="font-monospace text-decoration-none">${r.invoice_number}</a>` },
+        { data: 'customer' }, { data: 'invoice_date' }, { data: 'due_date' },
+        { data: 'total', render: d => '<strong>$' + d + '</strong>' },
+        { data: 'paid_amount' },
+        { data: 'balance', render: d => d !== '0.00' ? `<span class="text-danger">${d}</span>` : d },
+        { data: 'status', render: (d, t, r) => `<span class="badge badge-soft-${r.status_class === 'dark' ? 'secondary' : r.status_class}">${d}</span>` },
+        { data: null, className: 'no-export', orderable: false, searchable: false, render: (d, t, r) => `
+            <a href="/invoices/${r.id}/pdf/" target="_blank" class="btn btn-sm btn-outline-secondary" title="Print"><i class="fa-solid fa-print"></i></a>
+            <button class="btn btn-sm btn-outline-warning" onclick='editInvoice(${r.id})'><i class="fa-solid fa-pen"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteInvoice(${r.id})"><i class="fa-solid fa-trash"></i></button>` }
+    ], { orderCol: 1 });
+});
+
+function openInvoiceModal(items = []) {
+    $('#v_id').val('');
+    $('#invoiceForm')[0].reset();
+    if (!$('#vDate').val()) $('#vDate').val(new Date().toISOString().slice(0, 10));
+    $('#vDiscount').val('0');
+    $('#invItemRows').empty();
+    if (!items.length) addInvItemRow();
+    else items.forEach(it => addInvItemRow(it));
+    recalcInvTotals();
+    $('#invoiceModalTitle').text('New Invoice');
+    new bootstrap.Modal('#invoiceModal').show();
+}
+
+function addInvItemRow(it = {}) {
+    const opts = invProducts.map(p =>
+        `<option value="${p.id}" data-price="${p.price}" data-tax="${p.tax}" ${it.product_id == p.id ? 'selected' : ''}>${p.name}</option>`).join('');
+    const row = $(`<tr>
+        <td><select class="form-select form-select-sm it-product" onchange="onInvProductPick(this)">
+            <option value="">-- Custom --</option>${opts}</select></td>
+        <td><input type="number" min="1" step="1" class="form-control form-control-sm it-qty text-end" value="${it.quantity || 1}" oninput="recalcInvTotals()"></td>
+        <td><input type="number" min="0" step="0.01" class="form-control form-control-sm it-price text-end" value="${it.price || 0}" oninput="recalcInvTotals()"></td>
+        <td><input type="number" min="0" max="100" step="0.01" class="form-control form-control-sm it-tax text-end" value="${it.tax || 0}" oninput="recalcInvTotals()"></td>
+        <td><input type="number" min="0" max="100" step="0.01" class="form-control form-control-sm it-disc text-end" value="${it.discount || 0}" oninput="recalcInvTotals()"></td>
+        <td class="text-end it-total fw-semibold align-middle">0.00</td>
+        <td class="text-end no-export"><button type="button" class="btn btn-sm btn-link text-danger"
+            onclick="$(this).closest('tr').remove(); recalcInvTotals();"><i class="fa-solid fa-xmark"></i></button></td>
+    </tr>`);
+    if (it.price !== undefined) row.find('.it-price').val(it.price);
+    if (it.tax !== undefined) row.find('.it-tax').val(it.tax);
+    $('#invItemRows').append(row);
+    recalcInvTotals();
+}
+
+function onInvProductPick(sel) {
+    const opt = sel.selectedOptions[0];
+    if (opt && opt.dataset.price) {
+        const tr = $(sel).closest('tr');
+        tr.find('.it-price').val(opt.dataset.price);
+        tr.find('.it-tax').val(opt.dataset.tax || 0);
+        tr.find('.it-qty').val(tr.find('.it-qty').val() || 1);
+        recalcInvTotals();
+    }
+}
+
+function collectInvItems() {
+    const items = [];
+    $('#invItemRows tr').each(function () {
+        items.push({
+            product_id: $(this).find('.it-product').val() || null,
+            quantity: $(this).find('.it-qty').val(),
+            price: $(this).find('.it-price').val(),
+            tax: $(this).find('.it-tax').val(),
+            discount: $(this).find('.it-disc').val()
+        });
+    });
+    return items.filter(i => Number(i.quantity) > 0 && Number(i.price) >= 0);
+}
+
+function recalcInvTotals() {
+    let sub = 0, tax = 0;
+    $('#invItemRows tr').each(function () {
+        const q = +$(this).find('.it-qty').val() || 0;
+        const p = +$(this).find('.it-price').val() || 0;
+        const t = +$(this).find('.it-tax').val() || 0;
+        const dc = +$(this).find('.it-disc').val() || 0;
+        const lineSub = q * p;
+        const lineTotal = lineSub + lineSub * t / 100 - lineSub * dc / 100;
+        $(this).find('.it-total').text(lineTotal.toFixed(2));
+        sub += lineSub; tax += lineSub * t / 100;
+    });
+    const disc = +($('#vDiscount').val() || 0);
+    $('#vSubtotal').text('$' + sub.toFixed(2));
+    $('#vTax').text('$' + tax.toFixed(2));
+    $('#vTotal').text('$' + (sub + tax - disc).toFixed(2));
+}
+
+function saveInvoice(e) {
+    e.preventDefault();
+    const f = e.target;
+    const fd = new FormData(f);
+    fd.append('items', JSON.stringify(collectInvItems()));
+    $.ajax({ url: '/invoices/save/', method: 'POST', data: fd, processData: false, contentType: false })
+        .done(res => {
+            toast(res.message);
+            bootstrap.Modal.getInstance('#invoiceModal').hide();
+            invoiceTable.ajax.reload(null, false);
+        }).fail(handleAjaxError);
+}
+
+function editInvoice(id) {
+    $.get(`/invoices/${id}/get/`).done(res => {
+        openInvoiceModal(res.items);
+        const v = res.invoice;
+        const f = $('#invoiceForm')[0];
+        $('#v_id').val(v.id);
+        f.customer_id.value = v.customer_id || '';
+        f.invoice_date.value = v.invoice_date || '';
+        f.due_date.value = v.due_date || '';
+        f.notes.value = v.notes || '';
+        $('#vDiscount').val(v.discount_total || 0);
+        recalcInvTotals();
+        $('#invoiceModalTitle').text(`Edit Invoice`);
+        bootstrap.Modal.getOrCreateInstance('#invoiceModal').show();
+    });
+}
+
+function deleteInvoice(id) { confirmDelete(`/invoices/${id}/delete/`, () => invoiceTable.ajax.reload(null, false)); }
+</script>
+{% endblock %}
