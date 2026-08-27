@@ -86,4 +86,4 @@ Then open <http://127.0.0.1:8000/> and log in (`admin` / `Admin@123`).
 
 
 <img src="https://raw.githubusercontent.com/cai-ro-coders/-CRM-Customer-Relationship-Management-system-Using-Python-Django-MySQL-Complete-Project/refs/heads/main/1.png" alt="Cairocoders Ednalan">
-<img src="https://raw.githubusercontent.com/cai-ro-coders/-CRM-Customer-Relationship-Management-system-Using-Python-Django-MySQL-Complete-Project/refs/heads/main/1.png" alt="Cairocoders Ednalan">
+<img src="https://raw.githubusercontent.com/cai-ro-coders/-CRM-Customer-Relationship-Management-system-Using-Python-Django-MySQL-Complete-Project/refs/heads/main/2.png" alt="Cairocoders Ednalan">
